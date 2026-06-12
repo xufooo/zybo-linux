@@ -1,50 +1,88 @@
-# ZYBO Audio Linux — GitHub Actions (Manual Only)
+# ZYBO Audio Linux — Buildroot GitHub Actions
+# Based on patterns from OpenWrtBuildWorkflows (disk cleanup, /workdir, retry)
 
 name: Buildroot Build
 
 on:
-  workflow_dispatch:  # manual trigger only, no automatic build on push
+  workflow_dispatch:
 
 jobs:
   build:
     runs-on: ubuntu-22.04
-    timeout-minutes: 120
+    timeout-minutes: 180
+    permissions:
+      contents: write
 
     steps:
     - name: Checkout
       uses: actions/checkout@v4
 
-    - name: Install Buildroot Dependencies
+    - name: Free disk space
+      uses: jlumbroso/free-disk-space@main
+      with:
+        tool-cache: false
+        android: true
+        dotnet: true
+        haskell: true
+        large-packages: true
+        docker-images: true
+        swap-storage: true
+
+    - name: Install dependencies
       run: |
         sudo apt-get update
         sudo apt-get install -y build-essential flex bison libssl-dev libncurses-dev \
           rsync cpio unzip wget bc python3
+        sudo apt-get autoremove --purge -y
+        sudo apt-get clean
 
-    - name: Setup Buildroot
+    - name: Prepare workdir
       run: |
-        if [ ! -d buildroot/.git ]; then
-          git clone --depth 1 --branch 2024.02 \
-            https://github.com/buildroot/buildroot.git buildroot
-        fi
+        sudo mkdir -p /workdir
+        sudo chown $USER:$GROUPS /workdir
+        ln -sf /workdir $GITHUB_WORKSPACE/workdir
+
+    - name: Clone Buildroot
+      working-directory: /workdir
+      run: |
+        git clone --depth 1 --branch 2024.02 \
+          https://github.com/buildroot/buildroot.git buildroot
 
     - name: Configure
       run: |
-        cd buildroot
-        make BR2_EXTERNAL=../linux/buildroot/external zybo_z7_audio_defconfig
+        cd /workdir/buildroot
+        make BR2_EXTERNAL=$GITHUB_WORKSPACE/linux/buildroot/external zybo_z7_audio_defconfig
 
     - name: Build
+      working-directory: /workdir/buildroot
       run: |
-        cd buildroot
-        make -j$(nproc) 2>&1 | tee build.log
+        make -j$(nproc) 2>&1 | tee build.log || make -j1 V=1 2>&1 | tee -a build.log
 
-    - name: Upload Artifacts
+    - name: Check space
+      if: always()
+      run: df -hT /workdir
+
+    - name: Upload artifacts
+      if: always()
       uses: actions/upload-artifact@v4
       with:
         name: zybo-linux-sdcard
         path: |
-          buildroot/output/images/sdcard.img
-          buildroot/output/images/zynq-zybo-z7.dtb
-          buildroot/output/images/uImage
-          buildroot/output/images/rootfs.tar
-          buildroot/build.log
+          /workdir/buildroot/output/images/sdcard.img
+          /workdir/buildroot/output/images/zynq-zybo*.dtb
+          /workdir/buildroot/output/images/uImage
+          /workdir/buildroot/output/images/rootfs.tar
+          /workdir/buildroot/build.log
         retention-days: 30
+
+  clean:
+    name: Clean up old runs
+    runs-on: ubuntu-22.04
+    permissions:
+      actions: write
+    steps:
+      - name: Delete old workflow runs
+        uses: Mattraks/delete-workflow-runs@main
+        with:
+          retain_days: 3
+          keep_minimum_runs: 3
