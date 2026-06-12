@@ -67,7 +67,6 @@ BR2_TARGET_ROOTFS_TAR=y
 # BR2_ROOTFS_OVERLAY="$(BR2_EXTERNAL_ZYBO_AUDIO_PATH)/board/zybo-z7/rootfs_overlay"
 
 # ─── SD card image ─────────────────────────────────────────────────────────
-BR2_TARGET_ROOTFS_EXT2=y
 BR2_PACKAGE_HOST_GENIMAGE=y
 BR2_ROOTFS_POST_IMAGE_SCRIPT="$(BR2_EXTERNAL_ZYBO_AUDIO_PATH)/board/zybo-z7/post-build.sh"
 BR2_ROOTFS_POST_SCRIPT_ARGS="$(BR2_EXTERNAL_ZYBO_AUDIO_PATH)/board/zybo-z7/genimage.cfg"
