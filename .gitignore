@@ -1,0 +1,18 @@
+# ZYBO Audio Linux Buildroot
+# Only commit source files — build artifacts stay on GitHub Actions
+
+# Buildroot clone (downloaded by CI)
+buildroot/
+
+# Local builds
+output/
+build/
+*.img
+*.tar
+*.log
+
+# Editor
+*.swp
+*~
+.idea/
+.vscode/

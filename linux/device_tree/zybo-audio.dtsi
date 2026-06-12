@@ -1,0 +1,203 @@
+/*
+ * zybo-audio.dtsi — Device Tree Overlay for ZYBO Audio DSP
+ * ----------------------------------------------------------
+ * This file adds the audio subsystem nodes to the ZYBO Z7 device tree.
+ * Include it from the top-level system-top.dts in your Buildroot project:
+ *
+ *   /include/ "zybo-audio.dtsi"
+ *
+ * Key nodes:
+ *   - axi_dma_audio: AXI DMA engine for audio streaming
+ *   - axi_i2s_dsp:   Custom I2S + DSP audio processing IP
+ *   - sound_card:    ASoC sound card definition
+ *   - clk_audio:     Audio clock (12.288 MHz from PL MMCM)
+ */
+
+/ {
+    /* ── Audio clock reference ─────────────────────────────────────── */
+    clk_audio: clk_audio {
+        compatible = "fixed-clock";
+        #clock-cells = <0>;
+        clock-frequency = <12288000>;  /* 12.288 MHz */
+        clock-output-names = "audio_mclk";
+    };
+
+    /* ── ASoC Sound Card ───────────────────────────────────────────── */
+    sound_card: sound {
+        compatible = "digilent,zybo-audio";
+        model = "ZYBO Z7 Audio DSP";
+
+        /* CPU DAI = FPGA I2S+DSP, Codec DAI = SSM2603 */
+        audio-cpu = <&axi_i2s_dsp>;
+        audio-codec = <&ssm2603>;
+
+        /* Audio routing: map codec outputs to board jacks */
+        audio-routing =
+            "Headphone", "HPOUT",
+            "Line Out",   "LOUT",
+            "Line In",    "LINEIN",
+            "Mic In",     "MICBIAS";
+
+        /* Clocks */
+        clocks = <&clk_audio>;
+        clock-names = "mclk";
+
+        /* Codec is I2C-controlled, I2S slave */
+        codec-master;
+    };
+
+    /* ── Simple Audio Card Dummy (for basic ALSA playback) ─────────── */
+    /* Use simple-audio-card for quick bring-up before custom driver */
+    dummy_sound: dummy-sound {
+        compatible = "simple-audio-card";
+        simple-audio-card,name = "ZYBO Audio DSP (simple)";
+        simple-audio-card,format = "i2s";
+        simple-audio-card,bitclock-master = <&cpu_dai>;
+        simple-audio-card,frame-master = <&cpu_dai>;
+
+        cpu_dai: simple-audio-card,cpu {
+            sound-dai = <&axi_i2s_dsp>;
+        };
+
+        simple-audio-card,codec {
+            sound-dai = <&ssm2603>;
+        };
+    };
+};
+
+/* ═══════════════════════════════════════════════════════════════════════
+ * PL (Programmable Logic) Peripherals
+ * Add these under the amba_pl node created by the Zynq device tree.
+ * ═══════════════════════════════════════════════════════════════════════ */
+
+&amba_pl {
+    /* ── AXI DMA: Audio Data Engine ──────────────────────────────── */
+    axi_dma_audio: dma@40400000 {
+        compatible = "xlnx,axi-dma-1.00.a";
+        reg = <0x40400000 0x10000>;
+        interrupt-parent = <&intc>;
+        interrupts = <0 29 4>, <0 30 4>;  /* MM2S, S2MM */
+
+        #dma-cells = <1>;
+        clocks = <&clkc 15>;  /* FCLK0 = 100 MHz */
+        clock-names = "s_axi_lite_aclk";
+
+        /* DMA channels */
+        dma-channel@40400000 {
+            compatible = "xlnx,axi-dma-mm2s-channel";
+            reg = <0x40400000 0x1000>;
+            interrupts = <0 29 4>;
+            xlnx,device-id = <0>;
+            xlnx,datawidth = <64>;
+        };
+        dma-channel@40400030 {
+            compatible = "xlnx,axi-dma-s2mm-channel";
+            reg = <0x40400030 0x1000>;
+            interrupts = <0 30 4>;
+            xlnx,device-id = <0>;
+            xlnx,datawidth = <64>;
+        };
+    };
+
+    /* ── Custom I2S + DSP Audio IP ────────────────────────────────── */
+    axi_i2s_dsp: i2s-dsp@43c00000 {
+        compatible = "digilent,zybo-i2s-dsp-1.0";
+        reg = <0x43c00000 0x10000>;
+
+        /* AXI-Stream connections (referenced by DMA) */
+        dmas = <&axi_dma_audio 0>;   /* playback: MM2S → I2S_DSP */
+        dma-names = "tx";
+
+        clocks = <&clk_audio>, <&clkc 15>;
+        clock-names = "audio", "axi";
+
+        /* I2S pins (MIO-connected through PL) */
+        pinctrl-names = "default";
+        pinctrl-0 = <&pinctrl_i2s>;
+
+        status = "okay";
+    };
+
+    /* ── I2S Pin Control ──────────────────────────────────────────── */
+    pinctrl_i2s: i2s-grp {
+        /* Using EMIO pins (PL I/O), no traditional pinctrl needed */
+        /* Document the pin mapping:
+         *   i2s_mclk    → M18
+         *   i2s_bclk    → K18
+         *   i2s_lrclk   → L17
+         *   i2s_sdata_i → M17
+         *   i2s_sdata_o → M19
+         */
+    };
+
+    /* ── AXI GPIO: LEDs ───────────────────────────────────────────── */
+    axi_gpio_led: gpio@41200000 {
+        compatible = "xlnx,axi-gpio-2.0";
+        reg = <0x41200000 0x10000>;
+        #gpio-cells = <2>;
+        gpio-controller;
+        xlnx,all-outputs = <1>;
+        xlnx,gpio-width = <4>;
+    };
+
+    /* ── AXI GPIO: Buttons ─────────────────────────────────────────── */
+    axi_gpio_btn: gpio@41210000 {
+        compatible = "xlnx,axi-gpio-2.0";
+        reg = <0x41210000 0x10000>;
+        #gpio-cells = <2>;
+        gpio-controller;
+        xlnx,all-inputs = <1>;
+        xlnx,gpio-width = <4>;
+        interrupt-parent = <&intc>;
+        interrupts = <0 31 4>;
+    };
+};
+
+/* ═══════════════════════════════════════════════════════════════════════
+ * SSM2603 Audio Codec (on I2C0, address 0x1A)
+ *
+ * The SSM2603 is register-compatible with SSM2602.
+ * Linux driver: sound/soc/codecs/ssm2602.c
+ * ═══════════════════════════════════════════════════════════════════════ */
+
+&i2c0 {
+    status = "okay";
+    clock-frequency = <400000>;
+
+    ssm2603: audio-codec@1a {
+        compatible = "adi,ssm2602";
+        reg = <0x1a>;
+
+        clocks = <&clk_audio>;
+        clock-names = "mclk";
+
+        #sound-dai-cells = <0>;
+
+        /* Power supplies */
+        AVDD-supply = <&vcc3v3>;
+        IOVDD-supply = <&vcc3v3>;
+        DVDD-supply = <&vcc1v8>;
+
+        adi,digital-microphone;
+        adi,disable-jack-detection;
+    };
+};
+
+/* ── Fixed regulators (if not already defined) ────────────────────────── */
+/ {
+    vcc3v3: fixedregulator@0 {
+        compatible = "regulator-fixed";
+        regulator-name = "VCC3V3";
+        regulator-min-microvolt = <3300000>;
+        regulator-max-microvolt = <3300000>;
+        regulator-always-on;
+    };
+
+    vcc1v8: fixedregulator@1 {
+        compatible = "regulator-fixed";
+        regulator-name = "VCC1V8";
+        regulator-min-microvolt = <1800000>;
+        regulator-max-microvolt = <1800000>;
+        regulator-always-on;
+    };
+};

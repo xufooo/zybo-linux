@@ -1,0 +1,24 @@
+#!/bin/sh
+# /etc/init.d/S99zybo-server — Auto-start ZYBO Go Backend at Boot
+
+case "$1" in
+  start)
+    echo "Starting ZYBO Audio Server..."
+    # Go backend serves webui on port 8080
+    /usr/local/bin/zybo-go-server > /var/log/zybo-server.log 2>&1 &
+    echo $! > /var/run/zybo-server.pid
+    ;;
+  stop)
+    echo "Stopping ZYBO Audio Server..."
+    if [ -f /var/run/zybo-server.pid ]; then
+      kill $(cat /var/run/zybo-server.pid)
+      rm -f /var/run/zybo-server.pid
+    fi
+    ;;
+  restart)
+    $0 stop; sleep 1; $0 start
+    ;;
+  *)
+    echo "Usage: $0 {start|stop|restart}"
+    ;;
+esac
