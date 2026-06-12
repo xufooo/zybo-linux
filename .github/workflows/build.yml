@@ -30,7 +30,7 @@ jobs:
     - name: Configure
       run: |
         cd buildroot
-        make BR2_EXTERNAL=../external zybo_z7_audio_defconfig
+        make BR2_EXTERNAL=../linux/buildroot/external zybo_z7_audio_defconfig
 
     - name: Build
       run: |
