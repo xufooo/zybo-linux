@@ -52,6 +52,7 @@ jobs:
       run: |
         cd /workdir/buildroot
         make BR2_EXTERNAL=$GITHUB_WORKSPACE/linux/buildroot/external zybo_z7_audio_defconfig
+        make olddefconfig
 
     - name: Build
       working-directory: /workdir/buildroot
