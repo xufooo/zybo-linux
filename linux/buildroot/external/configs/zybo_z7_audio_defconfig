@@ -1,94 +1,69 @@
-# ============================================================================
-# Buildroot Defconfig — ZYBO Z7-10 Audio DSP
-# ============================================================================
-# Target: Zynq-7000 XC7Z010 (ARM Cortex-A9)
-# Kernel: linux-xlnx 5.15
-# Boot:   U-Boot 2024.01 + Zynq boot.bin (FSBL from Vivado .hdf)
-#
-# Usage:
-#   make BR2_EXTERNAL=/path/to/external zybo_z7_audio_defconfig
-#   make
-# ============================================================================
-
-# ─── Architecture ──────────────────────────────────────────────────────────
+# Buildroot Defconfig — ZYBO Audio DSP (Buildroot 2024.02)
+# Architecture: ARM Cortex-A9, Zynq-7000 XC7Z010
 BR2_arm=y
 BR2_cortex_a9=y
 BR2_ARM_ENABLE_NEON=y
 BR2_ARM_ENABLE_VFP=y
 BR2_ARM_FPU_VFPV3D16=y
 
-# ─── Toolchain ─────────────────────────────────────────────────────────────
+# Toolchain: Buildroot internal glibc
 BR2_TOOLCHAIN_BUILDROOT_GLIBC=y
 BR2_TOOLCHAIN_BUILDROOT_CXX=y
 BR2_TOOLCHAIN_BUILDROOT_WCHAR=y
-BR2_GCC_VERSION_12_X=y
 
-# ─── System ────────────────────────────────────────────────────────────────
+# System
 BR2_TARGET_GENERIC_HOSTNAME="zybo-audio"
-BR2_TARGET_GENERIC_ISSUE="Welcome to ZYBO Audio DSP"
-BR2_ROOTFS_DEVICE_CREATION_DYNAMIC_DEVTMPFS=y
+BR2_TARGET_GENERIC_ISSUE="ZYBO Audio DSP"
 BR2_INIT_BUSYBOX=y
+BR2_ROOTFS_DEVICE_CREATION_DYNAMIC_DEVTMPFS=y
 
-# ─── Kernel (linux-xlnx) ───────────────────────────────────────────────────
+# Kernel: linux-xlnx 5.15
 BR2_LINUX_KERNEL=y
 BR2_LINUX_KERNEL_CUSTOM_GIT=y
 BR2_LINUX_KERNEL_CUSTOM_REPO_URL="https://github.com/Xilinx/linux-xlnx.git"
 BR2_LINUX_KERNEL_CUSTOM_REPO_VERSION="xlnx_rebase_v5.15_LTS"
 BR2_LINUX_KERNEL_DEFCONFIG="xilinx_zynq"
-
-# Kernel config fragment for audio
 BR2_LINUX_KERNEL_CONFIG_FRAGMENT_FILES="$(BR2_EXTERNAL_ZYBO_AUDIO_PATH)/board/zybo-z7/linux.fragment"
-
-# Kernel build options
 BR2_LINUX_KERNEL_UIMAGE=y
 BR2_LINUX_KERNEL_UIMAGE_LOADADDR="0x00008000"
 BR2_LINUX_KERNEL_DTS_SUPPORT=y
-BR2_LINUX_KERNEL_CUSTOM_DTS_PATH="$(BR2_EXTERNAL_ZYBO_AUDIO_PATH)/overlays/zybo-audio.dtsi"
-BR2_LINUX_KERNEL_NEEDS_HOST_OPENSSL=y
 
-# ─── Boot Loader (U-Boot) ──────────────────────────────────────────────────
+# Boot: U-Boot 2024.01
 BR2_TARGET_UBOOT=y
 BR2_TARGET_UBOOT_BUILD_SYSTEM_KCONFIG=y
 BR2_TARGET_UBOOT_CUSTOM_GIT=y
 BR2_TARGET_UBOOT_CUSTOM_REPO_URL="https://source.denx.de/u-boot/u-boot.git"
 BR2_TARGET_UBOOT_CUSTOM_REPO_VERSION="v2024.01"
-BR2_TARGET_UBOOT_BOARD_DEFCONFIG="zynq_zybo_z7"
-BR2_TARGET_UBOOT_FORMAT_IMG=y
-BR2_TARGET_UBOOT_SPL=y
-BR2_TARGET_UBOOT_SPL_NAME="spl/boot.bin"
+BR2_TARGET_UBOOT_BOARD_DEFCONFIG="zynq_zybo"
 
-# ─── Filesystem ────────────────────────────────────────────────────────────
+# Root filesystem
 BR2_TARGET_ROOTFS_EXT2=y
 BR2_TARGET_ROOTFS_EXT2_4=y
 BR2_TARGET_ROOTFS_EXT2_SIZE="256M"
 BR2_TARGET_ROOTFS_TAR=y
 
-# ─── Rootfs overlay: custom files ──────────────────────────────────────────
-# BR2_ROOTFS_OVERLAY="$(BR2_EXTERNAL_ZYBO_AUDIO_PATH)/board/zybo-z7/rootfs_overlay"
-
-# ─── SD card image ─────────────────────────────────────────────────────────
+# SD card
 BR2_PACKAGE_HOST_GENIMAGE=y
 BR2_ROOTFS_POST_IMAGE_SCRIPT="$(BR2_EXTERNAL_ZYBO_AUDIO_PATH)/board/zybo-z7/post-build.sh"
-BR2_ROOTFS_POST_SCRIPT_ARGS="$(BR2_EXTERNAL_ZYBO_AUDIO_PATH)/board/zybo-z7/genimage.cfg"
 
-# ─── Packages: Audio & System Tools ────────────────────────────────────────
-# ALSA (audio subsystem)
+# Rootfs overlay
+BR2_ROOTFS_OVERLAY="$(BR2_EXTERNAL_ZYBO_AUDIO_PATH)/board/zybo-z7/rootfs_overlay"
+
+# ── Packages ──────────────────────────────────────────────────────────
+# ALSA
 BR2_PACKAGE_ALSA_LIB=y
-BR2_PACKAGE_ALSA_LIB_PCM=y
 BR2_PACKAGE_ALSA_UTILS=y
 BR2_PACKAGE_ALSA_UTILS_APLAY=y
 BR2_PACKAGE_ALSA_UTILS_AMIXER=y
-BR2_PACKAGE_ALSA_UTILS_SPEAKER_TEST=y
 
-# Audio codec & decoder libraries
+# Audio decoding
 BR2_PACKAGE_LIBSNDFILE=y
 BR2_PACKAGE_MPG123=y
 BR2_PACKAGE_FLAC=y
 BR2_PACKAGE_LIBMAD=y
 BR2_PACKAGE_LIBVORBIS=y
-BR2_PACKAGE_LIBOGG=y
 
-# MPD (Music Player Daemon) — local + network audio engine
+# MPD — music player daemon
 BR2_PACKAGE_MPD=y
 BR2_PACKAGE_MPD_ALSA=y
 BR2_PACKAGE_MPD_FLAC=y
@@ -96,42 +71,15 @@ BR2_PACKAGE_MPD_MAD=y
 BR2_PACKAGE_MPD_VORBIS=y
 BR2_PACKAGE_MPD_LIBNFS=y
 BR2_PACKAGE_MPD_CURL=y
-# BR2_PACKAGE_MPD_SMBCLIENT=y   # libsmbclient has known crash bug
 
-# Network filesystem clients (for SMB mount support)
+# Network filesystem
 BR2_PACKAGE_CIFS_UTILS=y
 BR2_PACKAGE_LIBNFS=y
 BR2_PACKAGE_LIBCURL=y
 
-# Audio streaming sources
+# Streaming
 BR2_PACKAGE_SHAIRPORT_SYNC=y
-# BR2_PACKAGE_GMEDIARENDER=y    # uncomment when package is available
-# BR2_PACKAGE_BLUEZ_ALSA=y      # uncomment for Bluetooth support
 
-# Spotify Connect (librespot — open-source, lightweight)
-# BR2_PACKAGE_LIBRESPOT=y        # uncomment when package is available
-
-# Snapcast (multi-room synchronized audio)
-# BR2_PACKAGE_SNAPCAST=y         # uncomment when package is available
-
-# Development & debug
-BR2_PACKAGE_I2C_TOOLS=y
-BR2_PACKAGE_DHRYSTONE=y
-BR2_PACKAGE_STRACE=y
-
-# Networking (for scp/ssh)
+# System
 BR2_PACKAGE_OPENSSH=y
-BR2_PACKAGE_LIBOPENSSL=y
-
-# Scripting
-BR2_PACKAGE_PYTHON3=y
-
-# ─── Target filesystem skeleton ────────────────────────────────────────────
-BR2_TARGET_GENERIC_PASSWD_MD5=y
-BR2_TARGET_GENERIC_ROOT_PASSWD=""
-
-# ─── Post-build script integration ─────────────────────────────────────────
-BR2_ROOTFS_POST_BUILD_SCRIPT="$(BR2_EXTERNAL_ZYBO_AUDIO_PATH)/board/zybo-z7/post-build.sh"
-
-# ─── Rootfs overlay: copy pre-built webui + Go backend ─────────────────────
-BR2_ROOTFS_OVERLAY="$(BR2_EXTERNAL_ZYBO_AUDIO_PATH)/board/zybo-z7/rootfs_overlay"
+BR2_PACKAGE_I2C_TOOLS=y
