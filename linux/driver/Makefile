@@ -1,18 +1,16 @@
-# ──────────────────────────────────────────────────────────────────────────
 # Makefile — Linux Kernel Drivers for ZYBO Audio DSP
-# ──────────────────────────────────────────────────────────────────────────
-# Build with: make -C /path/to/kernel M=$(pwd) modules
-# (Not needed with Buildroot + simple-audio-card; kept for reference)
-# ──────────────────────────────────────────────────────────────────────────
+# Based on Zedboard audio driver pattern (yuhei1horibe/Zedboard_audio_driver)
+#
+# zybo-snd-card.c — main sound card driver (Zedboard pattern)
+# zybo-i2s-dai.c    — CPU DAI driver (simpler variant, kept as reference)
+# zed_pl_snd_card.c — original Zedboard reference (not compiled)
 
-obj-m += zybo-audio-machine.o
-obj-m += zybo-i2s-dsp-dai.o
+obj-$(CONFIG_SND_SOC_ZYBO_SND_CARD) += zybo-snd-card.o
 
-# If building built-in instead of modules:
-# obj-y += zybo-audio-machine.o
-# obj-y += zybo-i2s-dsp-dai.o
+# Legacy / reference
+# obj-m += zybo-audio-machine.o
+# obj-m += zybo-i2s-dsp-dai.o
 
-# ── Kernel build system integration ──────────────────────────────────────
 KERNEL_DIR ?= /lib/modules/$(shell uname -r)/build
 PWD := $(shell pwd)
 
