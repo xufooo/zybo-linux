@@ -51,7 +51,11 @@ jobs:
     - name: Configure
       run: |
         cd /workdir/buildroot
-        SKIP_LEGACY=y make BR2_EXTERNAL=$GITHUB_WORKSPACE/linux/buildroot/external zybo_z7_audio_defconfig
+        # Start from known-working Zynq-7000 config
+        make zynq_microzed_defconfig
+        # Disable MicroZed specifics and layer our packages via fragment
+        KCONFIG_CONFIG_FILE=$GITHUB_WORKSPACE/linux/buildroot/external/board/zybo-z7/config.fragment \
+          ./support/kconfig/merge_config.sh .config
         make olddefconfig
 
     - name: Build
