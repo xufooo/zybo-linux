@@ -1,36 +1,18 @@
 # Config fragment — overlaid on top of zynq_microzed_defconfig
-# Only sets options we need, everything else from base.
+# Same SoC (XC7Z010), different board. Override DTS and add our packages.
 
-BR2_TARGET_GENERIC_HOSTNAME="zybo-audio"
-BR2_TARGET_GENERIC_ISSUE="ZYBO Audio DSP"
-BR2_ROOTFS_DEVICE_CREATION_DYNAMIC_DEVTMPFS=y
-BR2_INIT_BUSYBOX=y
+# Change DTS from zynq-microzed to zynq-zybo
+BR2_LINUX_KERNEL_INTREE_DTS_NAME="zynq-zybo"
+BR2_TARGET_UBOOT_CUSTOM_MAKEOPTS="DEVICE_TREE=zynq-zybo"
 
-# Kernel: linux-xlnx 5.15
-BR2_LINUX_KERNEL=y
-BR2_LINUX_KERNEL_CUSTOM_GIT=y
-BR2_LINUX_KERNEL_CUSTOM_REPO_URL="https://github.com/Xilinx/linux-xlnx.git"
-BR2_LINUX_KERNEL_CUSTOM_REPO_VERSION="xlnx_rebase_v5.15_LTS"
-BR2_LINUX_KERNEL_DEFCONFIG="xilinx_zynq"
+# Use 6.1 kernel from base config — add our audio config
 BR2_LINUX_KERNEL_CONFIG_FRAGMENT_FILES="$(BR2_EXTERNAL_ZYBO_AUDIO_PATH)/board/zybo-z7/linux.fragment"
-BR2_LINUX_KERNEL_UIMAGE=y
-BR2_LINUX_KERNEL_UIMAGE_LOADADDR="0x00008000"
-
-# U-Boot 2024.01
-BR2_TARGET_UBOOT=y
-BR2_TARGET_UBOOT_BUILD_SYSTEM_KCONFIG=y
-BR2_TARGET_UBOOT_CUSTOM_GIT=y
-BR2_TARGET_UBOOT_CUSTOM_REPO_URL="https://source.denx.de/u-boot/u-boot.git"
-BR2_TARGET_UBOOT_CUSTOM_REPO_VERSION="v2024.01"
-BR2_TARGET_UBOOT_BOARD_DEFCONFIG="zynq_zybo"
 
 # Rootfs
-BR2_TARGET_ROOTFS_EXT2=y
-BR2_TARGET_ROOTFS_EXT2_4=y
 BR2_TARGET_ROOTFS_EXT2_SIZE="256M"
 BR2_TARGET_ROOTFS_TAR=y
 
-# SD card
+# SD card genimage + post-build
 BR2_PACKAGE_HOST_GENIMAGE=y
 BR2_ROOTFS_POST_IMAGE_SCRIPT="$(BR2_EXTERNAL_ZYBO_AUDIO_PATH)/board/zybo-z7/post-build.sh"
 
