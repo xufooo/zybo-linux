@@ -1,165 +1,61 @@
 /*
- * zybo-audio.dtsi — Device Tree Overlay: ZYBO Audio DSP Subsystem
- * ------------------------------------------------------------------
- * Include this from the top-level system-top.dts in your Buildroot
- * project to add audio support.
+ * zybo-audio.dtsi — ZYBO Audio DSP Device Tree Overlay
  *
- * In Buildroot 2024.02 + linux-xlnx 5.15, the base DTS is
- * arch/arm/boot/dts/zynq-zybo-z7.dts.
- *
- * This overlay adds:
- *   - AXI DMA for audio streaming (playback + capture)
- *   - I2S audio clock (fixed 12.288 MHz)
- *   - simple-audio-card binding CPU DAI → SSM2603 codec
- *   - AXI GPIO for LEDs & buttons
- *
- * Usage in Buildroot defconfig:
- *   BR2_LINUX_KERNEL_CUSTOM_DTS_PATH="$(BR2_EXTERNAL_ZYBO_AUDIO_PATH)/overlays/zybo-audio.dtsi"
- *
- * Actually the simpler approach: add the nodes to the base devicetree
- * via a DTS extension. The Buildroot external tree copies this to
- * the linux build directory for inclusion.
+ * Binding pattern: Zedboard (xlnx,snd-pcm + audio-codec phandles).
+ * The zybo-snd-card driver probes on compatible="digilent,d_axi_i2s_audio-2.0".
  */
 
 / {
-    /* ── Audio clock: 12.288 MHz reference (48 kHz × 512) ──────────── */
-    clk_audio: audio_clock {
-        compatible = "fixed-clock";
-        #clock-cells = <0>;
-        clock-frequency = <12288000>;
-        clock-output-names = "audio_mclk";
-    };
-
-    /* ── simple-audio-card — No C driver needed! ────────────────────── */
-    sound {
-        compatible = "simple-audio-card";
-        simple-audio-card,name = "ZYBO Audio DSP";
-        simple-audio-card,format = "i2s";
-
-        /* Direction: FPGA I2S is bit/frame master (codec slave) */
-        simple-audio-card,bitclock-master = <&dailink0_cpu>;
-        simple-audio-card,frame-master   = <&dailink0_cpu>;
-
-        /* Audio routing widgets */
-        simple-audio-card,widgets =
-            "Headphone", "Headphone Jack",
-            "Line", "Line Out",
-            "Microphone", "Mic Jack",
-            "Line", "Line In";
-
-        /* Audio routing map */
-        simple-audio-card,routing =
-            "Headphone Jack", "HPOUT",
-            "Line Out", "LINEOUT",
-            "Mic Jack", "MICBIAS",
-            "LINEIN", "Line In";
-
-        dailink0_cpu: simple-audio-card,cpu {
-            sound-dai = <&axi_dma_audio>;
-            dai-tdm-slot-num = <2>;
-            dai-tdm-slot-width = <32>;
-        };
-
-        simple-audio-card,codec {
-            sound-dai = <&ssm2603>;
-            system-clock-frequency = <12288000>;
-        };
-    };
-
-    /* ── Fixed regulators ──────────────────────────────────────────── */
-    vcc3v3: regulator-3v3 {
-        compatible = "regulator-fixed";
-        regulator-name = "VCC3V3";
-        regulator-min-microvolt = <3300000>;
-        regulator-max-microvolt = <3300000>;
-        regulator-always-on;
-    };
-
-    vcc1v8: regulator-1v8 {
-        compatible = "regulator-fixed";
-        regulator-name = "VCC1V8";
-        regulator-min-microvolt = <1800000>;
-        regulator-max-microvolt = <1800000>;
-        regulator-always-on;
-    };
+	/* 12.288 MHz audio MCLK (48 kHz × 256) */
+	clk_audio: audio_clock {
+		compatible = "fixed-clock";
+		#clock-cells = <0>;
+		clock-frequency = <12288000>;
+	};
 };
 
-/* ── AXI DMA: Audio data engine (PL logic) ─────────────────────────────── */
 &amba_pl {
-    axi_dma_audio: dma@40400000 {
-        compatible = "xlnx,axi-dma-1.00.a";
-        reg = <0x40400000 0x10000>;
-        #dma-cells = <1>;
-        clocks = <&clkc 15>;  /* FCLK_CLK0 = 100 MHz */
-        clock-names = "s_axi_lite_aclk";
-        interrupt-parent = <&intc>;
-        interrupts = <0 29 4>, <0 30 4>;
-        dma-channel@40400000 {
-            compatible = "xlnx,axi-dma-mm2s-channel";
-            reg = <0x40400000 0x1000>;
-            interrupts = <0 29 4>;
-            xlnx,device-id = <0>;
-            xlnx,datawidth = <64>;
-        };
-        dma-channel@40400030 {
-            compatible = "xlnx,axi-dma-s2mm-channel";
-            reg = <0x40400030 0x1000>;
-            interrupts = <0 30 4>;
-            xlnx,device-id = <0>;
-            xlnx,datawidth = <64>;
-        };
-        /* NOTE: #sound-dai-cells hooks this DMA into simple-audio-card */
-        #sound-dai-cells = <0>;
-    };
+	/* AXI DMA: audio streaming engine */
+	axi_dma_audio: dma@40400000 {
+		compatible = "xlnx,axi-dma-1.00.a";
+		reg = <0x40400000 0x10000>;
+		interrupt-parent = <&intc>;
+		interrupts = <0 29 4>, <0 30 4>;
+		#dma-cells = <1>;
+		clocks = <&clkc 15>;
+		dma-channel@40400000 {
+			compatible = "xlnx,axi-dma-mm2s-channel";
+			interrupts = <0 29 4>;
+			xlnx,datawidth = <64>;
+		};
+		dma-channel@40400030 {
+			compatible = "xlnx,axi-dma-s2mm-channel";
+			interrupts = <0 30 4>;
+			xlnx,datawidth = <64>;
+		};
+	};
 
-    /* ── AXI GPIO: LEDs (output) ────────────────────────────────────── */
-    gpio-leds@41200000 {
-        compatible = "xlnx,axi-gpio-2.0";
-        reg = <0x41200000 0x10000>;
-        #gpio-cells = <2>;
-        gpio-controller;
-        xlnx,all-outputs = <1>;
-        xlnx,gpio-width = <4>;
-        xlnx,dout-default = <0x0>;
-    };
-
-    /* ── AXI GPIO: Buttons (input) ──────────────────────────────────── */
-    gpio-buttons@41210000 {
-        compatible = "xlnx,axi-gpio-2.0";
-        reg = <0x41210000 0x10000>;
-        #gpio-cells = <2>;
-        gpio-controller;
-        xlnx,all-inputs = <1>;
-        xlnx,gpio-width = <4>;
-        interrupt-parent = <&intc>;
-        interrupts = <0 31 4>;
-    };
+	/* I2S + Audio DSP IP — probes zybo-snd-card driver */
+	zybo_i2s: i2s@43c00000 {
+		compatible = "digilent,d_axi_i2s_audio-2.0";
+		reg = <0x43c00000 0x10000>;
+		clocks = <&clkc 15>, <&clk_audio>;
+		clock-names = "axi", "mclk";
+		xlnx,snd-pcm = <&axi_dma_audio>;
+		audio-codec  = <&ssm2603>;
+	};
 };
 
-/* ── SSM2603 Audio Codec (on I2C0, address 0x1A) ──────────────────────── */
+/* SSM2603 on I2C0 (PL pins N18/N17, AXI IIC mapped to /dev/i2c-0) */
 &i2c0 {
-    status = "okay";
-    clock-frequency = <400000>;
+	status = "okay";
+	clock-frequency = <400000>;
 
-    ssm2603: audio-codec@1a {
-        compatible = "adi,ssm2602";
-        reg = <0x1a>;
-
-        #sound-dai-cells = <0>;
-
-        clocks = <&clk_audio>;
-        clock-names = "mclk";
-
-        /* Power supplies */
-        AVDD-supply  = <&vcc3v3>;
-        IOVDD-supply = <&vcc3v3>;
-        DVDD-supply  = <&vcc1v8>;
-
-        /* SSM2603: no digital mic, no jack detection */
-    };
-};
-
-/* ── I2C1: optional HDMI audio codec (ADV7513) ────────────────────────── */
-&i2c1 {
-    status = "disabled";  /* Enable if using HDMI audio */
+	ssm2603: codec@1a {
+		compatible = "adi,ssm2602";
+		reg = <0x1a>;
+		#sound-dai-cells = <0>;
+		clocks = <&clk_audio>;
+		clock-names = "mclk";
+	};
 };
