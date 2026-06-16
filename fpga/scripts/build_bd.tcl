@@ -35,6 +35,10 @@ puts "========================================"
 set ps7      [create_bd_cell -type ip -vlnv xilinx.com:ip:processing_system7:5.5 processing_system7_0]
 set dma      [create_bd_cell -type ip -vlnv xilinx.com:ip:axi_dma:7.1 axi_dma_0]
 set i2s      [create_bd_cell -type ip -vlnv digilentinc.com:user:axi_i2s_adi:1.2 axi_i2s_adi_0]
+set_property -dict [list CONFIG.C_DMA_TYPE {0}] $i2s
+# Clock wizard: 100MHz → 12.288MHz MCLK (48kHz × 256)
+set clk_wiz  [create_bd_cell -type ip -vlnv xilinx.com:ip:clk_wiz:6.0 clk_wiz_0]
+set_property -dict [list CONFIG.CLKOUT1_REQUESTED_OUT_FREQ {12.288} CONFIG.PRIM_IN_FREQ {100.000}] $clk_wiz
 set iic      [create_bd_cell -type ip -vlnv xilinx.com:ip:axi_iic:2.0 axi_iic_0]
 set gpio     [create_bd_cell -type ip -vlnv xilinx.com:ip:axi_gpio:2.0 axi_gpio_0]
 set concat   [create_bd_cell -type ip -vlnv xilinx.com:ip:xlconcat:2.1 xlconcat_0]
@@ -91,11 +95,17 @@ connect_bd_intf_net [get_bd_intf_pins $dma/M_AXIS_MM2S] [get_bd_intf_pins $i2s/S
 connect_bd_intf_net [get_bd_intf_pins $i2s/M_AXIS]       [get_bd_intf_pins $dma/S_AXIS_S2MM]
 
 # I2S pins
-connect_bd_net [get_bd_pins $i2s/bclk]  [get_bd_ports ac_bclk]
-connect_bd_net [get_bd_pins $i2s/lrclk] [get_bd_ports ac_pblrc]
-connect_bd_net [get_bd_pins $i2s/lrclk] [get_bd_ports ac_reclrc]
-connect_bd_net [get_bd_pins $i2s/sdata_o] [get_bd_ports ac_pbdat]
-connect_bd_net [get_bd_pins $i2s/sdata_i] [get_bd_ports ac_recdat]
+# Clock wizard: FCLK0 → clk_wiz → DATA_CLK_I (12.288MHz MCLK)
+connect_bd_net $fclk [get_bd_pins $clk_wiz/clk_in1]
+connect_bd_net [get_bd_pins $clk_wiz/clk_out1] [get_bd_pins $i2s/DATA_CLK_I]
+connect_bd_net [get_bd_pins $ps7/FCLK_RESET0_N] [get_bd_pins $clk_wiz/resetn]
+connect_bd_net [get_bd_pins $rst/peripheral_aresetn] [get_bd_pins $clk_wiz/reset]
+
+connect_bd_net [get_bd_pins $i2s/BCLK_O]  [get_bd_ports ac_bclk]
+connect_bd_net [get_bd_pins $i2s/LRCLK_O] [get_bd_ports ac_pblrc]
+connect_bd_net [get_bd_pins $i2s/LRCLK_O] [get_bd_ports ac_reclrc]
+connect_bd_net [get_bd_pins $i2s/SDATA_O] [get_bd_ports ac_pbdat]
+connect_bd_net [get_bd_pins $i2s/SDATA_I] [get_bd_ports ac_recdat]
 
 # GP0 → periph_ic → DMA ctrl + IIC + GPIO + I2S ctrl
 connect_bd_intf_net [get_bd_intf_pins $ps7/M_AXI_GP0] [get_bd_intf_pins $periph_ic/S00_AXI]
