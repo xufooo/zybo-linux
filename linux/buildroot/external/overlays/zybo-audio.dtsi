@@ -1,8 +1,8 @@
 /*
- * zybo-audio.dtsi — ZYBO Audio DSP Device Tree Overlay (axi_i2s_adi IP)
+ * zybo-audio.dtsi — ZYBO Audio DSP Device Tree Overlay
  *
- * Uses mainline ADI AXI I2S driver (sound/soc/adi/axi-i2s.c).
- * simple-audio-card bridges CPU DAI ↔ SSM2603 codec DAI.
+ * CPU DAI: zybo-i2s-dai (custom driver for d_axi_i2s_audio IP)
+ * Codec:   ssm2602-hifi (mainline SSM2602 driver, SSM2603 compatible)
  */
 
 / {
@@ -17,7 +17,7 @@
 		simple-audio-card,name = "ZYBO Audio DSP";
 		simple-audio-card,format = "i2s";
 		simple-audio-card,cpu { sound-dai = <&zybo_i2s>; };
-		simple-audio-card,codec { sound-dai = <&ssm2603>; system-clock-frequency = <12288000>; };
+		simple-audio-card,codec { sound-dai = <&ssm2603>; };
 	};
 };
 
@@ -34,10 +34,9 @@
 	};
 
 	zybo_i2s: i2s@43c00000 {
-		compatible = "adi,axi-i2s-1.00.a";
+		compatible = "digilent,d_axi_i2s_audio-2.0";
 		reg = <0x43c00000 0x10000>;
-		clocks = <&clkc 15>, <&clk_audio>;
-		clock-names = "axi", "ref";
+		clocks = <&clkc 15>;
 		dmas = <&axi_dma_audio 0>, <&axi_dma_audio 1>;
 		dma-names = "tx", "rx";
 	};

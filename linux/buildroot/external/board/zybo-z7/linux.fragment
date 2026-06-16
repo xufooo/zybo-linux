@@ -18,9 +18,6 @@ CONFIG_SND_PCM_XRUN_DEBUG=y
 CONFIG_SND_SIMPLE_CARD=y
 CONFIG_SND_SIMPLE_CARD_UTILS=y
 
-# ─── ASoC CPU DAI: ADI AXI I2S (mainline driver for axi_i2s_adi IP) ──────
-CONFIG_SND_SOC_ADI_AXI_I2S=y
-
 # ─── SSM2603 Codec Driver ────────────────────────────────────────────────
 CONFIG_SND_SOC_SSM2602=y
 CONFIG_SND_SOC_SSM2602_I2C=y
