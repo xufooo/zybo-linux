@@ -1,61 +1,54 @@
 /*
- * zybo-audio.dtsi — ZYBO Audio DSP Device Tree Overlay
+ * zybo-audio.dtsi — ZYBO Audio DSP Device Tree Overlay (axi_i2s_adi IP)
  *
- * Binding pattern: Zedboard (xlnx,snd-pcm + audio-codec phandles).
- * The zybo-snd-card driver probes on compatible="digilent,d_axi_i2s_audio-2.0".
+ * Uses mainline ADI AXI I2S driver (sound/soc/adi/axi-i2s.c).
+ * simple-audio-card bridges CPU DAI ↔ SSM2603 codec DAI.
  */
 
 / {
-	/* 12.288 MHz audio MCLK (48 kHz × 256) */
 	clk_audio: audio_clock {
 		compatible = "fixed-clock";
 		#clock-cells = <0>;
 		clock-frequency = <12288000>;
 	};
+
+	sound {
+		compatible = "simple-audio-card";
+		simple-audio-card,name = "ZYBO Audio DSP";
+		simple-audio-card,format = "i2s";
+		simple-audio-card,cpu { sound-dai = <&zybo_i2s>; };
+		simple-audio-card,codec { sound-dai = <&ssm2603>; system-clock-frequency = <12288000>; };
+	};
 };
 
 &amba_pl {
-	/* AXI DMA: audio streaming engine */
 	axi_dma_audio: dma@40400000 {
 		compatible = "xlnx,axi-dma-1.00.a";
 		reg = <0x40400000 0x10000>;
-		interrupt-parent = <&intc>;
-		interrupts = <0 29 4>, <0 30 4>;
 		#dma-cells = <1>;
 		clocks = <&clkc 15>;
-		dma-channel@40400000 {
-			compatible = "xlnx,axi-dma-mm2s-channel";
-			interrupts = <0 29 4>;
-			xlnx,datawidth = <64>;
-		};
-		dma-channel@40400030 {
-			compatible = "xlnx,axi-dma-s2mm-channel";
-			interrupts = <0 30 4>;
-			xlnx,datawidth = <64>;
-		};
+		interrupt-parent = <&intc>;
+		interrupts = <0 29 4>, <0 30 4>;
+		dma-channel@0 { compatible = "xlnx,axi-dma-mm2s-channel"; interrupts = <0 29 4>; };
+		dma-channel@1 { compatible = "xlnx,axi-dma-s2mm-channel"; interrupts = <0 30 4>; };
 	};
 
-	/* I2S + Audio DSP IP — probes zybo-snd-card driver */
 	zybo_i2s: i2s@43c00000 {
-		compatible = "digilent,d_axi_i2s_audio-2.0";
+		compatible = "adi,axi-i2s-1.00.a";
 		reg = <0x43c00000 0x10000>;
 		clocks = <&clkc 15>, <&clk_audio>;
-		clock-names = "axi", "mclk";
-		xlnx,snd-pcm = <&axi_dma_audio>;
-		audio-codec  = <&ssm2603>;
+		clock-names = "axi", "ref";
+		dmas = <&axi_dma_audio 0>, <&axi_dma_audio 1>;
+		dma-names = "tx", "rx";
 	};
 };
 
-/* SSM2603 on I2C0 (PL pins N18/N17, AXI IIC mapped to /dev/i2c-0) */
 &i2c0 {
 	status = "okay";
 	clock-frequency = <400000>;
-
 	ssm2603: codec@1a {
 		compatible = "adi,ssm2602";
 		reg = <0x1a>;
 		#sound-dai-cells = <0>;
-		clocks = <&clk_audio>;
-		clock-names = "mclk";
 	};
 };
