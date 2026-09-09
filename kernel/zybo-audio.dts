@@ -16,7 +16,7 @@
 // 上板核对项：i2c 中断号（IRQ_F2P[0] = SPI 29）；如 BD 变更需同步。
 // ============================================================================
 /dts-v1/;
-#include "zynq-zybo.dts"
+#include "xilinx/zynq-zybo.dts"
 
 / {
     audio_ref_clk: audio_ref_clk {

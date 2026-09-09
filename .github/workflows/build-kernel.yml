@@ -59,8 +59,9 @@ jobs:
 
       - name: Apply device tree overlay + config fragment
         run: |
-          # overlay 设备树放入内核 dts 目录（6.x 起按厂商分目录：arch/arm/boot/dts/xilinx/）
-          cp kernel/zybo-audio.dts linux/arch/arm/boot/dts/xilinx/zybo-audio.dts
+          # overlay 放到 arch/arm/boot/dts/ 根目录；DTS 内以 xilinx/zynq-zybo.dts 引用板级树
+          # （与 Buildroot BR2_LINUX_KERNEL_CUSTOM_DTS_PATH 的落点保持一致）
+          cp kernel/zybo-audio.dts linux/arch/arm/boot/dts/zybo-audio.dts
           cp kernel/config.fragment .config.fragment
           cd linux
           make ARCH=$ARCH CROSS_COMPILE=$CROSS xilinx_zynq_defconfig
@@ -72,8 +73,7 @@ jobs:
         run: |
           cd linux
           make ARCH=$ARCH CROSS_COMPILE=$CROSS -j$(nproc) zImage
-          # kbuild 的 dtb 目标需相对 arch/arm/boot/dts/ 指定
-          make ARCH=$ARCH CROSS_COMPILE=$CROSS -j$(nproc) xilinx/zybo-audio.dtb
+          make ARCH=$ARCH CROSS_COMPILE=$CROSS -j$(nproc) zybo-audio.dtb
 
       - name: Build uImage (U-Boot 启动格式)
         run: |
@@ -84,7 +84,7 @@ jobs:
         run: |
           ls -la linux/arch/arm/boot/zImage \
                 linux/arch/arm/boot/uImage \
-                linux/arch/arm/boot/dts/xilinx/zybo-audio.dtb \
+                linux/arch/arm/boot/dts/zybo-audio.dtb \
                 linux/.config linux/System.map
 
       - name: Upload kernel artifact
@@ -94,7 +94,7 @@ jobs:
           path: |
             linux/arch/arm/boot/zImage
             linux/arch/arm/boot/uImage
-            linux/arch/arm/boot/dts/xilinx/zybo-audio.dtb
+            linux/arch/arm/boot/dts/zybo-audio.dtb
             linux/.config
             linux/System.map
             kernel-version.txt
