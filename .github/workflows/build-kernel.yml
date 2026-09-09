@@ -72,7 +72,8 @@ jobs:
         run: |
           cd linux
           make ARCH=$ARCH CROSS_COMPILE=$CROSS -j$(nproc) zImage
-          make ARCH=$ARCH CROSS_COMPILE=$CROSS -j$(nproc) arch/arm/boot/dts/xilinx/zybo-audio.dtb
+          # kbuild 的 dtb 目标需相对 arch/arm/boot/dts/ 指定
+          make ARCH=$ARCH CROSS_COMPILE=$CROSS -j$(nproc) xilinx/zybo-audio.dtb
 
       - name: Build uImage (U-Boot 启动格式)
         run: |
