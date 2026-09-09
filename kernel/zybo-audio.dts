@@ -44,7 +44,8 @@
     };
 };
 
-&amba_pl {
+/* PL 外设直接挂根节点（6.6 的 zynq-zybo.dts 无 amba_pl 容器）*/
+/ {
     axi_i2s_0: i2s@43c00000 {
         #sound-dai-cells = <0>;
         compatible = "adi,axi-i2s-1.00.a";
