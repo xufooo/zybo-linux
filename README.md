@@ -1,46 +1,67 @@
-# zybo-linux — ZYBO Rev B Linux 内核（GitHub Actions 构建）
+# zybo-linux
 
-仅含 **Linux 内核编译**所需内容，不包含 FPGA / 后端 / 根文件系统等。
+Linux kernel build for a ZYBO (Zynq-7000) audio player.
 
-## 内核版本（已调研，2026-09）
+Cross-compiles a Xilinx kernel with the audio device tree overlay and produces
+`zImage`, `uImage` and `zybo-audio.dtb` on GitHub Actions.
 
-- 官方仓库：**Xilinx/linux-xlnx** <https://github.com/Xilinx/linux-xlnx>
-  （“The official Linux kernel from Xilinx”，仍由 Xilinx org 维护）
-- 当前维护的 LTS 线（git ls-remote 实测）：5.15 / 6.1 / **6.6** / 6.12 / 6.18，
-  并有 `_202x.y_update` 与 Vivado/Vitis 发行配套的细化分支
-- 本项目选 **`xlnx_rebase_v6.6_LTS_2024.1_merge_6.6.80`**（tag 锁定，不可变）：属 Vivado/Vitis **2024.1**
-  官方线（`xlnx_rebase_v6.6_LTS_2024.1` = 6.6.10），并已并入上游 stable 修复（6.6.80）；
-  Zynq-7000 在该线内受官方维护。CI 会把 `ref/commit/kernelversion` 写入产物 `kernel-version.txt`。
-- 早期项目用的 5.15 是 2022/2023.1 时代，弃用
+## What it builds
 
-## 内容
+| Item | Value |
+|---|---|
+| Kernel source | [Xilinx/linux-xlnx](https://github.com/Xilinx/linux-xlnx) |
+| Ref (pinned tag) | `xlnx_rebase_v6.6_LTS_2024.1_merge_6.6.80` (6.6 LTS, paired with Vivado/Vitis 2024.1) |
+| Base config | `xilinx_zynq_defconfig` + `kernel/config.fragment` |
+| Device tree | `kernel/zybo-audio.dts` (applied on top of `zynq-zybo.dts`) |
+| Toolchain | `arm-linux-gnueabihf-` |
+
+`kernel/config.fragment` enables the audio stack:
+
+- `SND_SOC_ADI` / `SND_SOC_ADI_AXI_I2S` — ADI AXI-I2S CPU DAI (PL330 mode)
+- `SND_SOC_SSM2602(_I2C)` — SSM2603 codec (register compatible)
+- `SND_SIMPLE_CARD` / `SND_SOC_GENERIC_DMAENGINE_PCM` — DT-only sound card
+- `PL330_DMA` — Zynq PS DMA used by the I2S core
+- Xilinx I2C / GPIO / SPI drivers
+
+`kernel/zybo-audio.dts` adds the PL devices to the board device tree:
+
+| Node | Address | Notes |
+|---|---|---|
+| `axi_i2s_0` | `0x43C00000` | `adi,axi-i2s-1.00.a`, `dmas = <&dmac_s 0>, <&dmac_s 1>` |
+| `axi_iic_0` | `0x41600000` | PL I2C → SSM2603 at `0x1A` |
+| `axi_gpio_btn` | `0x41200000` | 4-bit button input |
+| `sound` | — | `simple-audio-card` ("Zybo-Sound-Card") |
+
+## Hardware notes
+
+- Board: Digilent ZYBO Rev B (XC7Z010-CLG400), SSM2603 codec wired to PL pins
+- MCLK is fixed at **12.288 MHz** (256 × 48 kHz) → playback is native for the
+  48 kHz family; 44.1 kHz content needs resampling
+- `AC_MUTEN` must be driven **high** (the codec is muted otherwise)
+- Data path: PS PL330 DMA (tx = channel 0, rx = channel 1) ↔ ADI AXI-I2S ↔ SSM2603
+
+## CI
+
+`.github/workflows/build-kernel.yml` runs on `workflow_dispatch` and on pushes
+touching `kernel/**`. Artifacts (`kernel-images`):
+
+```
+zImage  uImage  zybo-audio.dtb  .config  System.map  kernel-version.txt
+```
+
+`kernel-version.txt` records the pinned ref, resolved commit and kernel version.
+
+## Layout
 
 ```
 zybo-linux/
 ├── .github/workflows/build-kernel.yml
 ├── kernel/
-│   ├── config.fragment      # linux-xlnx 6.6 音频相关配置（ASoC: adi-axi-i2s/ssm2602/simple-card、
-│   │                        #   Xilinx DMA、PL I2C、GPIO…，与 Buildroot 全镜像共用）
-│   └── zybo-audio.dts       # 音频 PL 外设 overlay（DMA/i2s/iic/gpio/sound，include zynq-zybo.dts）
+│   ├── config.fragment     # kernel config fragment (audio stack)
+│   └── zybo-audio.dts      # audio device tree overlay
 └── README.md
 ```
 
-## Actions 构建
+## Related
 
-- 内核：Xilinx `linux-xlnx` 分支 `xlnx_rebase_v6.6_LTS`（与 Vivado 2024.1 配套）
-- 基配置：`xilinx_zynq_defconfig` + `kernel/config.fragment` 叠加
-- DTS：`kernel/zybo-audio.dts` → 编出 `zybo-audio.dtb`
-- 产物（artifact `kernel-images`）：`zImage` / `uImage` / `zybo-audio.dtb` / `.config` / `System.map`
-
-触发：手动运行；或 push 改动 `kernel/**` / workflow 时自动。
-
-## 烧录/对接提示
-
-- `uImage` + `zybo-audio.dtb` 放入 SD 卡 FAT 分区（配合 BOOT.BIN：由 FPGA 侧 `.xsa` + bootgen 生成）；
-- 该 fragment/dts 与 `ZYBO/projects/audio_player/linux/`（本地 Buildroot 全镜像）保持同步；
-  本仓库为内核侧“单一事实来源”，改动后同步到 audio_player。
-
-## 参考
-
-- linux-xlnx：<https://github.com/Xilinx/linux-xlnx>
-- 板级/方案背景：见 ZYBO 工程（`docs/PLAN.md`、`docs/TROUBLESHOOTING.md`）
+- Root filesystem: [zybo-buildroot](https://github.com/xufooo/zybo-buildroot)
