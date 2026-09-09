@@ -1,0 +1,82 @@
+// ============================================================================
+// zybo-audio.dts — ZYBO Rev B 音频系统设备树（V6：PL330 + simple-audio-card）
+// ============================================================================
+// 依据（见 docs/RESEARCH.md）：mainline 绑定 adi,axi-i2s.txt + 已跑通配方
+//   （axi_i2s_adi + PS PL330(&dmac_s) + ssm2603 + simple-audio-card）
+// 作为 Buildroot 的自定义内核 DTS（BR2_LINUX_KERNEL_CUSTOM_DTS_PATH），
+// 在 linux-xlnx 6.6 自带 zynq-zybo.dts（PS 外设）基础上叠加音频 PL 外设。
+//
+// 与硬件/BD 对应关系（build_bd.tcl + zybo_audio.xdc）：
+//   axi_gpio  @0x4120_0000   4bit 按键输入
+//   axi_iic   @0x4160_0000   PL I2C → SSM2603 @0x1A
+//   axi_i2s   @0x43C0_0000   Digilent axi_i2s_adi:1.2（PL330 模式，兼容 adi,axi-i2s-1.00.a）
+//   DMA       PS 内置 PL330（&dmac_s）：tx=ch0, rx=ch1
+//   clk_wiz   12.288MHz (48k*256) → I2S DATA_CLK_I + AC_MCLK
+//
+// 上板核对项：i2c 中断号（IRQ_F2P[0] = SPI 29）；如 BD 变更需同步。
+// ============================================================================
+/dts-v1/;
+#include "zynq-zybo.dts"
+
+/ {
+    audio_ref_clk: audio_ref_clk {
+        compatible = "fixed-clock";
+        #clock-cells = <0>;
+        clock-frequency = <12288000>;   /* 48kHz * 256 */
+    };
+
+    sound {
+        compatible = "simple-audio-card";
+        simple-audio-card,name = "Zybo-Sound-Card";
+        simple-audio-card,format = "i2s";
+        simple-audio-card,bitclock-master = <&cpu_dai>;
+        simple-audio-card,frame-master = <&cpu_dai>;
+
+        cpu_dai: simple-audio-card,cpu {
+            sound-dai = <&axi_i2s_0>;
+            clocks = <&audio_ref_clk>;
+        };
+
+        simple-audio-card,codec {
+            sound-dai = <&ssm2603>;
+            clocks = <&audio_ref_clk>;
+        };
+    };
+};
+
+&amba_pl {
+    axi_i2s_0: i2s@43c00000 {
+        #sound-dai-cells = <0>;
+        compatible = "adi,axi-i2s-1.00.a";
+        reg = <0x43c00000 0x1000>;
+        clock-names = "axi", "ref";
+        clocks = <&clkc 15>, <&audio_ref_clk>;
+        dmas = <&dmac_s 0>, <&dmac_s 1>;
+        dma-names = "tx", "rx";
+    };
+
+    axi_iic_0: i2c@41600000 {             /* PL I2C → codec（⚠ 非 PS I2C） */
+        compatible = "xlnx,xps-iic-2.00.a";
+        reg = <0x41600000 0x10000>;
+        interrupts = <0 29 4>;            /* IRQ_F2P[0] */
+        #address-cells = <1>;
+        #size-cells = <0>;
+        clock-frequency = <100000>;
+
+        ssm2603: ssm2603@1a {
+            #sound-dai-cells = <0>;
+            compatible = "adi,ssm2603";
+            reg = <0x1a>;
+        };
+    };
+
+    axi_gpio_btn: gpio@41200000 {
+        compatible = "xlnx,xps-gpio-1.00.a";
+        reg = <0x41200000 0x10000>;
+        gpio-controller;
+        #gpio-cells = <2>;
+    };
+};
+
+// 说明：zynq-zybo.dts 自带 amba_pl 中的官方基础外设节点（timer/hdmi 等）在本设计中
+// 不存在于硬件；若 probe 噪音明显，可按需 /delete-node/（上板阶段处理）。

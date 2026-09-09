@@ -1,0 +1,104 @@
+# ============================================================================
+# build-kernel.yml — ZYBO Rev B Linux 内核交叉编译（linux-xlnx 6.6 LTS）
+# ============================================================================
+# 只做内核：linux-xlnx xlnx_rebase_v6.6_LTS（与 Vivado/Vitis 2024.1 发行配套；
+#   官方维护线见 https://github.com/Xilinx/linux-xlnx 分支 xlnx_rebase_v*_LTS）
+# + kernel/config.fragment + kernel/zybo-audio.dts（音频 PL 外设 overlay）
+# 产物（artifact: kernel-images）：zImage / uImage / zybo-audio.dtb / .config / System.map
+# ============================================================================
+name: Build ZYBO Linux Kernel
+
+on:
+  workflow_dispatch:
+  push:
+    paths:
+      - 'kernel/**'
+      - '.github/workflows/build-kernel.yml'
+
+concurrency:
+  group: zybo-linux-kernel
+  cancel-in-progress: true
+
+env:
+  KERNEL_REPO: https://github.com/Xilinx/linux-xlnx.git
+  # 与 Vivado 2024.1 配套的官方内核线（Vitis 2024.1 → 6.6 LTS）
+  KERNEL_BRANCH: xlnx_rebase_v6.6_LTS
+  ARCH: arm
+  CROSS: arm-linux-gnueabihf-
+  LOADADDR: '0x8000'
+
+jobs:
+  kernel:
+    name: Build linux-xlnx kernel for ZYBO
+    runs-on: ubuntu-22.04
+    timeout-minutes: 120
+    steps:
+      - name: Checkout
+        uses: actions/checkout@v4
+
+      - name: Install cross toolchain & deps
+        env:
+          DEBIAN_FRONTEND: noninteractive
+        run: |
+          sudo apt-get update
+          sudo apt-get install -y --no-install-recommends \
+            bc bison build-essential cpio device-tree-compiler file flex \
+            gcc-arm-linux-gnueabihf libncurses-dev libssl-dev u-boot-tools
+          arm-linux-gnueabihf-gcc --version | head -1
+
+      - name: Clone linux-xlnx
+        run: |
+          git clone --depth 1 --branch $KERNEL_BRANCH --single-branch \
+            $KERNEL_REPO linux/
+
+      - name: Apply device tree overlay + config fragment
+        run: |
+          # overlay 设备树放入内核 dts 目录（6.x 起按厂商分目录：arch/arm/boot/dts/xilinx/）
+          cp kernel/zybo-audio.dts linux/arch/arm/boot/dts/xilinx/zybo-audio.dts
+          cp kernel/config.fragment .config.fragment
+          cd linux
+          make ARCH=$ARCH CROSS_COMPILE=$CROSS xilinx_zynq_defconfig
+          # 叠加音频相关配置 fragment
+          ./scripts/kconfig/merge_config.sh -m .config ../.config.fragment
+          make ARCH=$ARCH CROSS_COMPILE=$CROSS olddefconfig
+
+      - name: Build kernel (zImage + dtb)
+        run: |
+          cd linux
+          make ARCH=$ARCH CROSS_COMPILE=$CROSS -j$(nproc) zImage
+          make ARCH=$ARCH CROSS_COMPILE=$CROSS -j$(nproc) arch/arm/boot/dts/xilinx/zybo-audio.dtb
+
+      - name: Build uImage (U-Boot 启动格式)
+        run: |
+          cd linux
+          make ARCH=$ARCH CROSS_COMPILE=$CROSS LOADADDR=$LOADADDR -j$(nproc) uImage
+
+      - name: Show artifacts
+        run: |
+          ls -la linux/arch/arm/boot/zImage \
+                linux/arch/arm/boot/uImage \
+                linux/arch/arm/boot/dts/xilinx/zybo-audio.dtb \
+                linux/.config linux/System.map
+
+      - name: Upload kernel artifact
+        uses: actions/upload-artifact@v4
+        with:
+          name: kernel-images
+          path: |
+            linux/arch/arm/boot/zImage
+            linux/arch/arm/boot/uImage
+            linux/arch/arm/boot/dts/xilinx/zybo-audio.dtb
+            linux/.config
+            linux/System.map
+          if-no-files-found: error
+          retention-days: 30
+
+      - name: Upload config/log on failure
+        if: failure()
+        uses: actions/upload-artifact@v4
+        with:
+          name: kernel-build-fail-log
+          path: |
+            linux/.config
+          if-no-files-found: ignore
+          retention-days: 14
