@@ -8,8 +8,9 @@
   （“The official Linux kernel from Xilinx”，仍由 Xilinx org 维护）
 - 当前维护的 LTS 线（git ls-remote 实测）：5.15 / 6.1 / **6.6** / 6.12 / 6.18，
   并有 `_202x.y_update` 与 Vivado/Vitis 发行配套的细化分支
-- 本项目选 **`xlnx_rebase_v6.6_LTS`**：与本机 **Vivado/Vitis 2024.1** 配套
-  （对应 `xlnx_rebase_v6.6_LTS_2024.1_update` 点）；Zynq-7000 在该线内受官方维护
+- 本项目选 **`xlnx_rebase_v6.6_LTS_2024.1_merge_6.6.80`**（tag 锁定，不可变）：属 Vivado/Vitis **2024.1**
+  官方线（`xlnx_rebase_v6.6_LTS_2024.1` = 6.6.10），并已并入上游 stable 修复（6.6.80）；
+  Zynq-7000 在该线内受官方维护。CI 会把 `ref/commit/kernelversion` 写入产物 `kernel-version.txt`。
 - 早期项目用的 5.15 是 2022/2023.1 时代，弃用
 
 ## 内容
