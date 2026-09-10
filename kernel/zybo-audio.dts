@@ -67,6 +67,11 @@
          * DT 的 SPI 号相对 GIC SPI 基址 32：29 + 32 = 61 = IRQ_F2P[0]。 */
         interrupt-parent = <&intc>;
         interrupts = <0 29 4>;            /* IRQ_F2P[0] */
+        /* xiic-i2c 用 devm_clk_get_enabled(dev, NULL) 取第一个时钟（= S_AXI_ACLK
+         * = FCLK_CLK0 100MHz），缺了会 probe 失败：
+         *   "error -ENOENT: failed to enable input clock."
+         * 该时钟同时决定 SCL 分频（clk_get_rate 作 input_clk）。 */
+        clocks = <&clkc 15>;              /* FCLK_CLK0 = 100MHz */
         #address-cells = <1>;
         #size-cells = <0>;
         clock-frequency = <100000>;
