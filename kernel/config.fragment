@@ -130,6 +130,10 @@ CONFIG_MAC80211=y
 # ── Realtek
 CONFIG_RTL8XXXU=y
 CONFIG_RTL8XXXU_UNTESTED=y
+# ⚠️ RTW88 外面套了一层 menuconfig：不写 CONFIG_RTW88=y 的话，
+#    下面那堆 CONFIG_RTW88_* 会被 olddefconfig **静默丢弃**（实测踩过：
+#    RTW88_CORE/USB/芯片选项全没进 .config，而构建照样"成功"）。
+CONFIG_RTW88=y
 CONFIG_RTW88_CORE=y
 CONFIG_RTW88_USB=y
 CONFIG_RTW88_8821CU=y
