@@ -72,3 +72,38 @@ CONFIG_FUSE_FS=y
 # ─── UIO（Phase-3 DSP 寄存器访问的可选通道）────────────────────────────────
 CONFIG_UIO=y
 CONFIG_UIO_PDRV_GENIRQ=y
+
+# ─── 发行版用户空间（Debian armhf + systemd）────────────────────────────────
+# xilinx_zynq_defconfig 是嵌入式取向：cgroup 控制器、命名空间、fanotify、
+# tmpfs POSIX ACL 全都没开。Buildroot 最小系统用不到，但接了 Debian 之后
+# systemd 会严重降级（服务隔离/资源控制失效、大量 unit 报错）。
+# 实测缺失清单见项目 docs/TROUBLESHOOTING.md §14。
+CONFIG_CGROUPS=y
+CONFIG_CGROUP_FREEZER=y
+CONFIG_CGROUP_DEVICE=y
+CONFIG_CGROUP_SCHED=y
+CONFIG_CGROUP_PIDS=y
+CONFIG_CGROUP_BPF=y
+CONFIG_MEMCG=y
+CONFIG_CPUSETS=y
+CONFIG_BPF_SYSCALL=y
+CONFIG_NAMESPACES=y
+CONFIG_UTS_NS=y
+CONFIG_IPC_NS=y
+CONFIG_PID_NS=y
+CONFIG_NET_NS=y
+CONFIG_USER_NS=y
+CONFIG_FANOTIFY=y
+CONFIG_FANOTIFY_ACCESS_PERMISSIONS=y
+CONFIG_AUTOFS4_FS=y
+CONFIG_TMPFS_XATTR=y
+CONFIG_TMPFS_POSIX_ACL=y
+CONFIG_EXT4_FS_POSIX_ACL=y
+CONFIG_EXT4_FS_SECURITY=y
+CONFIG_SECCOMP=y
+CONFIG_SECCOMP_FILTER=y
+
+# ─── 音频工具链便利项 ───────────────────────────────────────────────────────
+# /proc/config.gz：上板核对内核配置（本次 bring-up 就是靠它查的）
+CONFIG_IKCONFIG=y
+CONFIG_IKCONFIG_PROC=y
