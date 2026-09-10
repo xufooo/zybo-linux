@@ -107,3 +107,17 @@ CONFIG_SECCOMP_FILTER=y
 # /proc/config.gz：上板核对内核配置（本次 bring-up 就是靠它查的）
 CONFIG_IKCONFIG=y
 CONFIG_IKCONFIG_PROC=y
+
+# ─── USB WiFi（自带 dongle 调试用；2026-09-10）────────────────────────────────
+# 目的：让板子能接入与开发机同一 WiFi，从而用网络传文件（2MB bitstream 走串口
+# 要 1~2 小时，这条把"传文件"从小时级降到秒级）。
+# 实测：xilinx_zynq_defconfig 里整个无线栈都没开（CFG80211/MAC80211/RFKILL 全无），
+# 而 staging 的 r8188eu 在 6.6 已被删除 ⇒ 走主线的 rtl8xxxu。
+# 手上 dongle：0bda:8179 RTL8188EUS（rtl8xxxu 的 Kconfig 明确列 RTL8188EU 为已支持），
+# 固件 rtlwifi/rtl8188eufw.bin 由 Debian 的 firmware-realtek 提供。
+# 依赖已核实：LEDS_CLASS / USB / CRYPTO / CRC32 均为 y。
+CONFIG_RFKILL=y
+CONFIG_CFG80211=y
+CONFIG_MAC80211=y
+CONFIG_RTL8XXXU=y
+CONFIG_RTL8XXXU_UNTESTED=y
