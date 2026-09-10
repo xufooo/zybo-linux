@@ -87,6 +87,13 @@ jobs:
                 linux/arch/arm/boot/dts/zybo-audio.dtb \
                 linux/.config linux/System.map
 
+      - name: Collect config for the artifact
+        run: |
+          # upload-artifact v4 默认排除隐藏文件，linux/.config 不会进 artifact；
+          # 复制成非隐藏名字，便于事后核对"这个内核到底用了什么配置"。
+          cp linux/.config kernel-config.txt
+          wc -l kernel-config.txt
+
       - name: Upload kernel artifact
         uses: actions/upload-artifact@v4
         with:
@@ -96,6 +103,7 @@ jobs:
             linux/arch/arm/boot/uImage
             linux/arch/arm/boot/dts/zybo-audio.dtb
             linux/.config
+            kernel-config.txt
             linux/System.map
             kernel-version.txt
           if-no-files-found: error
