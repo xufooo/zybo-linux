@@ -59,6 +59,13 @@
     axi_iic_0: i2c@41600000 {             /* PL I2C → codec（⚠ 非 PS I2C） */
         compatible = "xlnx,xps-iic-2.00.a";
         reg = <0x41600000 0x10000>;
+        /* 必须显式写 interrupt-parent：zynq-7000.dtsi 只在 amba 节点上设了
+         * interrupt-parent=<&intc>，根节点没有；PL 节点挂在根节点下时
+         * of_irq_find_parent() 向上找不到，platform_get_irq() 返回 -ENXIO，
+         * xiic-i2c probe 直接失败（现象：无 I2C 适配器 → codec 不 probe →
+         * simple-audio-card 一直 deferred probe，"No soundcards found"）。
+         * DT 的 SPI 号相对 GIC SPI 基址 32：29 + 32 = 61 = IRQ_F2P[0]。 */
+        interrupt-parent = <&intc>;
         interrupts = <0 29 4>;            /* IRQ_F2P[0] */
         #address-cells = <1>;
         #size-cells = <0>;
