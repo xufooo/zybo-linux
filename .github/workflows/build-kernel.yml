@@ -1,8 +1,8 @@
 # ============================================================================
 # build-kernel.yml — cross-compile the ZYBO Rev B Linux kernel (linux-xlnx 6.6 LTS)
 # ============================================================================
-# Kernel only: linux-xlnx xlnx_rebase_v6.6_LTS (released with Vivado/Vitis 2024.1;
-#   upstream maintenance branches: https://github.com/Xilinx/linux-xlnx xlnx_rebase_v*_LTS)
+# Kernel only: linux-xlnx xlnx_rebase_v6.6_LTS, pinned to a commit SHA (released with
+#   Vivado/Vitis 2024.1; upstream: https://github.com/Xilinx/linux-xlnx)
 # + kernel/config.fragment + kernel/zybo-audio.dts (audio PL peripheral overlay)
 # Artifacts (artifact: kernel-images): zImage / uImage / zybo-audio.dtb / .config / System.map
 # ============================================================================
@@ -21,10 +21,16 @@ concurrency:
 
 env:
   KERNEL_REPO: https://github.com/Xilinx/linux-xlnx.git
-  # Official kernel tag matching Vivado/Vitis 2024.1 (immutable, reproducible builds)
-  # Candidates on this line: xlnx_rebase_v6.6_LTS_2024.1 (6.6.10) /
-  #           xlnx_rebase_v6.6_LTS_2024.1_merge_6.6.80 (includes upstream stable fixes) <- used
-  KERNEL_REF: xlnx_rebase_v6.6_LTS_2024.1_merge_6.6.80
+  # Immutable kernel revision: the commit the Vivado/Vitis 2024.1 tag points at.
+  # A tag can be re-pointed or deleted upstream, a commit SHA cannot, so this
+  # keeps the build reproducible and auditable. Resolved with:
+  #   git ls-remote https://github.com/Xilinx/linux-xlnx.git \
+  #     'refs/tags/xlnx_rebase_v6.6_LTS_2024.1_merge_6.6.80^{}'
+  #   tag xlnx_rebase_v6.6_LTS_2024.1_merge_6.6.80 (6.6.80, includes upstream
+  #     stable fixes) -> e29e392a451244a11aa3559738b6617536fde460
+  #   (annotated tag object 60ffc99400e598d1dadb44e0a7c36432f0f1f57b)
+  KERNEL_REF: e29e392a451244a11aa3559738b6617536fde460
+  KERNEL_TAG: xlnx_rebase_v6.6_LTS_2024.1_merge_6.6.80
   ARCH: arm
   CROSS: arm-linux-gnueabihf-
   LOADADDR: '0x8000'
@@ -48,12 +54,18 @@ jobs:
             gcc-arm-linux-gnueabihf libncurses-dev libssl-dev u-boot-tools
           arm-linux-gnueabihf-gcc --version | head -1
 
-      - name: Clone linux-xlnx (tag-pinned)
+      - name: Fetch linux-xlnx at the pinned commit
         run: |
-          git clone --depth 1 --branch $KERNEL_REF --single-branch \
-            $KERNEL_REPO linux/
+          # --branch does not accept a commit SHA, so create an empty repository
+          # and fetch exactly the pinned commit.
+          git init --quiet linux
           cd linux
-          echo "ref=$KERNEL_REF" | tee ../kernel-version.txt
+          git remote add origin "$KERNEL_REPO"
+          git fetch --depth 1 origin "$KERNEL_REF"
+          git checkout --quiet --detach FETCH_HEAD
+          test "$(git rev-parse HEAD)" = "$KERNEL_REF"
+          echo "tag=$KERNEL_TAG" | tee ../kernel-version.txt
+          echo "ref=$KERNEL_REF" | tee -a ../kernel-version.txt
           echo "commit=$(git rev-parse HEAD)" | tee -a ../kernel-version.txt
           echo "kernel=$(make ARCH=$ARCH kernelversion 2>/dev/null || echo unknown)" | tee -a ../kernel-version.txt
 

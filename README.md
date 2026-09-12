@@ -1,17 +1,16 @@
 # zybo-linux
 
-Linux kernel build for a ZYBO (Zynq-7000) audio player.
-
-Cross-compiles the Xilinx kernel with the audio device tree for the ZYBO Rev B
-and produces `zImage`, `uImage` and `zybo-audio.dtb` — on GitHub Actions or on a
-local Linux host.
+Kernel build recipe for a ZYBO (Zynq-7000) audio player: this repository holds
+the build inputs only and does **not** contain kernel source. CI fetches
+`Xilinx/linux-xlnx` at a pinned commit and cross-compiles `zImage`, `uImage` and
+`zybo-audio.dtb` for the ZYBO Rev B — on GitHub Actions or on a local host.
 
 ## What it builds
 
 | Item | Value |
 |---|---|
 | Kernel source | [Xilinx/linux-xlnx](https://github.com/Xilinx/linux-xlnx) |
-| Ref | `xlnx_rebase_v6.6_LTS_2024.1_merge_6.6.80` (6.6 LTS, Vivado/Vitis 2024.1 line) |
+| Ref | commit `e29e392a451244a11aa3559738b6617536fde460` (tag `xlnx_rebase_v6.6_LTS_2024.1_merge_6.6.80`, 6.6 LTS, Vivado/Vitis 2024.1 line) |
 | Base config | `xilinx_zynq_defconfig` + `kernel/config.fragment` |
 | Device tree | `kernel/zybo-audio.dts`, layered on top of `xilinx/zynq-zybo.dts` |
 | Cross toolchain | `arm-linux-gnueabihf-` |
@@ -32,13 +31,14 @@ kernel/zybo-audio.dts                # audio/PL device tree overlay
   `libncurses-dev`, `libssl-dev`, `u-boot-tools` (`mkimage`), `git`
 - ARM cross toolchain `gcc-arm-linux-gnueabihf` (`arm-linux-gnueabihf-`) with
   its 32-bit host libraries
-- Network access to clone `linux-xlnx`
 
 ## Build
 
 ```bash
-git clone --depth 1 --branch xlnx_rebase_v6.6_LTS_2024.1_merge_6.6.80 \
-    https://github.com/Xilinx/linux-xlnx.git linux
+git init --quiet linux
+git -C linux remote add origin https://github.com/Xilinx/linux-xlnx.git
+git -C linux fetch --depth 1 origin e29e392a451244a11aa3559738b6617536fde460
+git -C linux checkout --detach FETCH_HEAD
 
 cp kernel/zybo-audio.dts linux/arch/arm/boot/dts/zybo-audio.dts
 cp kernel/config.fragment .config.fragment
