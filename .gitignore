@@ -1,4 +1,4 @@
-# Linux 内核编译产物
+# Linux kernel build output
 linux/
 *.o
 *.cmd

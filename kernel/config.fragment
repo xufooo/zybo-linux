@@ -1,11 +1,11 @@
 # ============================================================================
 # config.fragment — Kernel Config Fragment for ZYBO Audio (linux-xlnx 6.6 LTS)
 # ============================================================================
-# Applied on top of xilinx_zynq_defconfig (linux-xlnx 6.6 LTS, 与 Vivado 2024.1 配套).
-# 用法（CI/手工）：make xilinx_zynq_defconfig && scripts/kconfig/merge_config.sh -m .config <本文件> && make olddefconfig
-# 架构依据见项目 docs/RESEARCH.md（PL330 + adi,axi-i2s + ssm2602 + simple-audio-card）
+# Applied on top of xilinx_zynq_defconfig (linux-xlnx 6.6 LTS, matching Vivado 2024.1).
+# Usage (CI or manual): make xilinx_zynq_defconfig && scripts/kconfig/merge_config.sh -m .config <this file> && make olddefconfig
+# Design basis: PL330 + adi,axi-i2s + ssm2602 + simple-audio-card
 
-# ─── Sound / ALSA ───────────────────────────────────────────────────────────
+# --- Sound / ALSA -----------------------------------------------------------
 CONFIG_SOUND=y
 CONFIG_SND=y
 CONFIG_SND_SOC=y
@@ -14,46 +14,46 @@ CONFIG_SND_VERBOSE_PROCFS=y
 CONFIG_SND_DEBUG=y
 CONFIG_SND_PCM_XRUN_DEBUG=y
 
-# ─── ASoC simple-audio-card（纯 DT 声卡）───────────────────────────────────
+# --- ASoC simple-audio-card (pure device-tree sound card) -------------------
 CONFIG_SND_SIMPLE_CARD=y
 CONFIG_SND_SIMPLE_CARD_UTILS=y
 CONFIG_SND_SOC_GENERIC_DMAENGINE_PCM=y
 
-# ─── CPU DAI：ADI AXI-I2S（PL330 模式；Digilent axi_i2s_adi 寄存器兼容）─────
+# --- CPU DAI: ADI AXI-I2S (PL330 mode; Digilent axi_i2s_adi register compatible) ---
 CONFIG_SND_SOC_ADI=y
 CONFIG_SND_SOC_ADI_AXI_I2S=y
 
-# ─── Codec：SSM2603（走 ssm2602 驱动）──────────────────────────────────────
+# --- Codec: SSM2603 (driven by the ssm2602 driver) --------------------------
 CONFIG_SND_SOC_SSM2602=y
 CONFIG_SND_SOC_SSM2602_I2C=y
 
-# ─── DMA：Zynq 内置 PL330（本设计采用；不使用 Xilinx AXI DMA）──────────────
+# --- DMA: Zynq built-in PL330 (used by this design; no Xilinx AXI DMA) ------
 CONFIG_DMADEVICES=y
 CONFIG_PL330_DMA=y
-# 备选路线（AXI DMA + audio formatter，需 BD 增加对应 IP）：
+# Alternative (AXI DMA + audio formatter, requires the matching IP in the BD):
 # CONFIG_XILINX_DMA=y
 # CONFIG_XILINX_DMA_ENGINE=y
 # CONFIG_AXI_DMAC=y
 # CONFIG_SND_SOC_XILINX_AUDIO_FORMATTER=y
 
-# ─── I2C（AXI IIC 控制器）──────────────────────────────────────────────────
+# --- I2C (AXI IIC controller) ----------------------------------------------
 CONFIG_I2C=y
 CONFIG_I2C_CHARDEV=y
 CONFIG_I2C_XILINX=y
 CONFIG_I2C_CADENCE=y
 
-# ─── GPIO ───────────────────────────────────────────────────────────────────
+# --- GPIO -------------------------------------------------------------------
 CONFIG_GPIO_SYSFS=y
 CONFIG_GPIO_XILINX=y
 CONFIG_GPIO_ZYNQ=y
 CONFIG_GPIO_GENERIC_PLATFORM=y
 
-# ─── SPI ────────────────────────────────────────────────────────────────────
+# --- SPI --------------------------------------------------------------------
 CONFIG_SPI=y
 CONFIG_SPI_XILINX=y
 CONFIG_SPI_CADENCE=y
 
-# ─── USB & Networking ──────────────────────────────────────────────────────
+# --- USB & Networking -------------------------------------------------------
 CONFIG_USB=y
 CONFIG_USB_EHCI_HCD=y
 CONFIG_USB_ULPI=y
@@ -63,21 +63,21 @@ CONFIG_NET=y
 CONFIG_PACKET=y
 CONFIG_UNIX=y
 
-# ─── Filesystems ────────────────────────────────────────────────────────────
+# --- Filesystems ------------------------------------------------------------
 CONFIG_EXT4_FS=y
 CONFIG_VFAT_FS=y
 CONFIG_MSDOS_FS=y
 CONFIG_FUSE_FS=y
 
-# ─── UIO（Phase-3 DSP 寄存器访问的可选通道）────────────────────────────────
+# --- UIO (optional path for Phase-3 DSP register access) --------------------
 CONFIG_UIO=y
 CONFIG_UIO_PDRV_GENIRQ=y
 
-# ─── 发行版用户空间（Debian armhf + systemd）────────────────────────────────
-# xilinx_zynq_defconfig 是嵌入式取向：cgroup 控制器、命名空间、fanotify、
-# tmpfs POSIX ACL 全都没开。Buildroot 最小系统用不到，但接了 Debian 之后
-# systemd 会严重降级（服务隔离/资源控制失效、大量 unit 报错）。
-# 实测缺失清单见项目 docs/TROUBLESHOOTING.md §14。
+# --- Distro userspace (Debian armhf + systemd) ------------------------------
+# xilinx_zynq_defconfig targets embedded systems: cgroup controllers, namespaces,
+# fanotify and tmpfs POSIX ACLs are all disabled. A minimal Buildroot system does
+# not need them, but with Debian on top systemd degrades badly (service isolation
+# and resource control stop working, and many units report errors).
 CONFIG_CGROUPS=y
 CONFIG_CGROUP_FREEZER=y
 CONFIG_CGROUP_DEVICE=y
@@ -103,36 +103,39 @@ CONFIG_EXT4_FS_SECURITY=y
 CONFIG_SECCOMP=y
 CONFIG_SECCOMP_FILTER=y
 
-# ─── 音频工具链便利项 ───────────────────────────────────────────────────────
-# /proc/config.gz：上板核对内核配置（本次 bring-up 就是靠它查的）
+# --- Audio tooling conveniences ---------------------------------------------
+# /proc/config.gz: inspect the running kernel configuration on the board
 CONFIG_IKCONFIG=y
 CONFIG_IKCONFIG_PROC=y
 
-# ─── USB WiFi：发布版默认支持常见 dongle（2026-09-10）────────────────────────
-# 背景：xilinx_zynq_defconfig 里**整个无线栈都没开**（CFG80211/MAC80211/RFKILL 全无），
-#       staging 的 r8188eu 在 6.6 已被删除 ⇒ 全部走主线驱动。
-# 原则：**按"常见型号都能用"来配**，不是只支持手上这一个。
-#   覆盖（括号内为主线驱动）：
-#     RTL8188EU/CU、RTL8192CU/EU、RTL8188FU、RTL8723BU、RTL8188GU   → rtl8xxxu
-#     RTL8821CU、RTL8723DU、RTL8822BU/CU                            → rtw88 (USB)
-#     MT7601U（最常见的廉价 150M）                                   → mt7601u
-#     MT7610U / MT7612U / MT7921AU                                  → mt76 (x0u/x2u/7921u)
-#     RT5370 / RT3070 / RT2070 等                                    → rt2800usb
-#     AR9271（如 TP-Link TL-WN722N v1）                              → ath9k_htc
-#   ⚠️ **不覆盖**：RTL8811AU/8812AU/8814AU/8821AU 等 AC 双频 dongle —— 它们
-#      **不在 Linux 主线**，需第三方 out-of-tree 驱动，发布镜像不含（README 里说明）。
-# 固件与用户态（Debian 侧）：firmware-realtek / firmware-mediatek / firmware-atheros /
-#   firmware-misc-nonfree(rt2870.bin) + wpasupplicant + iw + rfkill + wireless-regdb。
-# 依赖已核实：LEDS_CLASS / USB / CRYPTO / CRC32 均已是 y。
+# --- USB WiFi: the released image supports common dongles (2026-09-10) ------
+# xilinx_zynq_defconfig leaves the whole wireless stack disabled (no CFG80211,
+# MAC80211 or RFKILL), and the staging r8188eu driver was removed in 6.6, so all
+# support comes from mainline drivers.
+# Configured for "any common model works", not just one specific dongle.
+#   Coverage (mainline driver in parentheses):
+#     RTL8188EU/CU, RTL8192CU/EU, RTL8188FU, RTL8723BU, RTL8188GU   -> rtl8xxxu
+#     RTL8821CU, RTL8723DU, RTL8822BU/CU                            -> rtw88 (USB)
+#     MT7601U (the most common cheap 150M part)                     -> mt7601u
+#     MT7610U / MT7612U / MT7921AU                                  -> mt76 (x0u/x2u/7921u)
+#     RT5370 / RT3070 / RT2070 and similar                          -> rt2800usb
+#     AR9271 (e.g. TP-Link TL-WN722N v1)                            -> ath9k_htc
+#   NOT covered: dual-band AC dongles such as RTL8811AU/8812AU/8814AU/8821AU.
+#     They are not in mainline Linux and need an out-of-tree driver, which the
+#     released image does not include (see README).
+# Firmware and userspace (Debian side): firmware-realtek / firmware-mediatek /
+#   firmware-atheros / firmware-misc-nonfree(rt2870.bin) + wpasupplicant + iw +
+#   rfkill + wireless-regdb.
+# Dependencies verified: LEDS_CLASS / USB / CRYPTO / CRC32 are already y.
 CONFIG_RFKILL=y
 CONFIG_CFG80211=y
 CONFIG_MAC80211=y
-# ── Realtek
+# -- Realtek
 CONFIG_RTL8XXXU=y
 CONFIG_RTL8XXXU_UNTESTED=y
-# ⚠️ RTW88 外面套了一层 menuconfig：不写 CONFIG_RTW88=y 的话，
-#    下面那堆 CONFIG_RTW88_* 会被 olddefconfig **静默丢弃**（实测踩过：
-#    RTW88_CORE/USB/芯片选项全没进 .config，而构建照样"成功"）。
+# NOTE: RTW88 is wrapped in a menuconfig gate. Without CONFIG_RTW88=y, olddefconfig
+#    silently drops every CONFIG_RTW88_* below (the RTW88_CORE/USB/chip options
+#    never reach .config) while the build still reports success.
 CONFIG_RTW88=y
 CONFIG_RTW88_CORE=y
 CONFIG_RTW88_USB=y
@@ -140,7 +143,7 @@ CONFIG_RTW88_8821CU=y
 CONFIG_RTW88_8723DU=y
 CONFIG_RTW88_8822BU=y
 CONFIG_RTW88_8822CU=y
-# ── MediaTek
+# -- MediaTek
 CONFIG_MT7601U=y
 CONFIG_MT76_CORE=y
 CONFIG_MT76_USB=y
@@ -151,7 +154,7 @@ CONFIG_MT76x2U=y
 CONFIG_MT792x_LIB=y
 CONFIG_MT792x_USB=y
 CONFIG_MT7921U=y
-# ── Ralink
+# -- Ralink
 CONFIG_RT2X00=y
 CONFIG_RT2X00_LIB_USB=y
 CONFIG_RT2800USB=y
@@ -161,7 +164,7 @@ CONFIG_RT2800USB_RT3573=y
 CONFIG_RT2800USB_RT53XX=y
 CONFIG_RT2800USB_RT55XX=y
 CONFIG_RT2800USB_UNKNOWN=y
-# ── Atheros
+# -- Atheros
 CONFIG_ATH9K_HW=y
 CONFIG_ATH9K_COMMON=y
 CONFIG_ATH9K_HTC=y

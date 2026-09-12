@@ -1,10 +1,10 @@
 # ============================================================================
-# build-kernel.yml — ZYBO Rev B Linux 内核交叉编译（linux-xlnx 6.6 LTS）
+# build-kernel.yml — cross-compile the ZYBO Rev B Linux kernel (linux-xlnx 6.6 LTS)
 # ============================================================================
-# 只做内核：linux-xlnx xlnx_rebase_v6.6_LTS（与 Vivado/Vitis 2024.1 发行配套；
-#   官方维护线见 https://github.com/Xilinx/linux-xlnx 分支 xlnx_rebase_v*_LTS）
-# + kernel/config.fragment + kernel/zybo-audio.dts（音频 PL 外设 overlay）
-# 产物（artifact: kernel-images）：zImage / uImage / zybo-audio.dtb / .config / System.map
+# Kernel only: linux-xlnx xlnx_rebase_v6.6_LTS (released with Vivado/Vitis 2024.1;
+#   upstream maintenance branches: https://github.com/Xilinx/linux-xlnx xlnx_rebase_v*_LTS)
+# + kernel/config.fragment + kernel/zybo-audio.dts (audio PL peripheral overlay)
+# Artifacts (artifact: kernel-images): zImage / uImage / zybo-audio.dtb / .config / System.map
 # ============================================================================
 name: Build ZYBO Linux Kernel
 
@@ -21,9 +21,9 @@ concurrency:
 
 env:
   KERNEL_REPO: https://github.com/Xilinx/linux-xlnx.git
-  # 与 Vivado/Vitis 2024.1 配套的官方内核 tag（不可变，构建可复现）
-  # 该线可选：xlnx_rebase_v6.6_LTS_2024.1（6.6.10）/
-  #           xlnx_rebase_v6.6_LTS_2024.1_merge_6.6.80（含上游 stable 修复）← 采用
+  # Official kernel tag matching Vivado/Vitis 2024.1 (immutable, reproducible builds)
+  # Candidates on this line: xlnx_rebase_v6.6_LTS_2024.1 (6.6.10) /
+  #           xlnx_rebase_v6.6_LTS_2024.1_merge_6.6.80 (includes upstream stable fixes) <- used
   KERNEL_REF: xlnx_rebase_v6.6_LTS_2024.1_merge_6.6.80
   ARCH: arm
   CROSS: arm-linux-gnueabihf-
@@ -59,13 +59,14 @@ jobs:
 
       - name: Apply device tree overlay + config fragment
         run: |
-          # overlay 放到 arch/arm/boot/dts/ 根目录；DTS 内以 xilinx/zynq-zybo.dts 引用板级树
-          # （与 Buildroot BR2_LINUX_KERNEL_CUSTOM_DTS_PATH 的落点保持一致）
+          # Place the overlay in the arch/arm/boot/dts/ root; the DTS includes the board
+          # tree as xilinx/zynq-zybo.dts (same location as Buildroot
+          # BR2_LINUX_KERNEL_CUSTOM_DTS_PATH uses)
           cp kernel/zybo-audio.dts linux/arch/arm/boot/dts/zybo-audio.dts
           cp kernel/config.fragment .config.fragment
           cd linux
           make ARCH=$ARCH CROSS_COMPILE=$CROSS xilinx_zynq_defconfig
-          # 叠加音频相关配置 fragment
+          # Merge the audio config fragment
           ./scripts/kconfig/merge_config.sh -m .config ../.config.fragment
           make ARCH=$ARCH CROSS_COMPILE=$CROSS olddefconfig
 
@@ -75,7 +76,7 @@ jobs:
           make ARCH=$ARCH CROSS_COMPILE=$CROSS -j$(nproc) zImage
           make ARCH=$ARCH CROSS_COMPILE=$CROSS -j$(nproc) zybo-audio.dtb
 
-      - name: Build uImage (U-Boot 启动格式)
+      - name: Build uImage (U-Boot boot format)
         run: |
           cd linux
           make ARCH=$ARCH CROSS_COMPILE=$CROSS LOADADDR=$LOADADDR -j$(nproc) uImage
@@ -89,8 +90,8 @@ jobs:
 
       - name: Collect config for the artifact
         run: |
-          # upload-artifact v4 默认排除隐藏文件，linux/.config 不会进 artifact；
-          # 复制成非隐藏名字，便于事后核对"这个内核到底用了什么配置"。
+          # upload-artifact v4 excludes hidden files by default, so linux/.config would
+          # not be uploaded; copy it to a non-hidden name for later config inspection.
           cp linux/.config kernel-config.txt
           wc -l kernel-config.txt
 

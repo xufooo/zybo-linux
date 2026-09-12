@@ -1,19 +1,21 @@
 // ============================================================================
-// zybo-audio.dts — ZYBO Rev B 音频系统设备树（V6：PL330 + simple-audio-card）
+// zybo-audio.dts — ZYBO Rev B audio system device tree (V6: PL330 + simple-audio-card)
 // ============================================================================
-// 依据（见 docs/RESEARCH.md）：mainline 绑定 adi,axi-i2s.txt + 已跑通配方
-//   （axi_i2s_adi + PS PL330(&dmac_s) + ssm2603 + simple-audio-card）
-// 作为 Buildroot 的自定义内核 DTS（BR2_LINUX_KERNEL_CUSTOM_DTS_PATH），
-// 在 linux-xlnx 6.6 自带 zynq-zybo.dts（PS 外设）基础上叠加音频 PL 外设。
+// Based on the mainline binding adi,axi-i2s.txt and a working configuration:
+//   (axi_i2s_adi + PS PL330(&dmac_s) + ssm2603 + simple-audio-card)
+// Used as the Buildroot custom kernel DTS (BR2_LINUX_KERNEL_CUSTOM_DTS_PATH):
+// it layers the audio PL peripherals on top of the zynq-zybo.dts (PS peripherals)
+// shipped with linux-xlnx 6.6.
 //
-// 与硬件/BD 对应关系（build_bd.tcl + zybo_audio.xdc）：
-//   axi_gpio  @0x4120_0000   4bit 按键输入
-//   axi_iic   @0x4160_0000   PL I2C → SSM2603 @0x1A
-//   axi_i2s   @0x43C0_0000   Digilent axi_i2s_adi:1.2（PL330 模式，兼容 adi,axi-i2s-1.00.a）
-//   DMA       PS 内置 PL330（&dmac_s）：tx=ch0, rx=ch1
-//   clk_wiz   12.288MHz (48k*256) → I2S DATA_CLK_I + AC_MCLK
+// Hardware / block design mapping:
+//   axi_gpio  @0x4120_0000   4-bit push-button input
+//   axi_iic   @0x4160_0000   PL I2C -> SSM2603 @0x1A
+//   axi_i2s   @0x43C0_0000   Digilent axi_i2s_adi:1.2 (PL330 mode, compatible with adi,axi-i2s-1.00.a)
+//   DMA       PS built-in PL330 (&dmac_s): tx=ch0, rx=ch1
+//   clk_wiz   12.288MHz (48k*256) -> I2S DATA_CLK_I + AC_MCLK
 //
-// 上板核对项：i2c 中断号（IRQ_F2P[0] = SPI 29）；如 BD 变更需同步。
+// Board check: the i2c interrupt number (IRQ_F2P[0] = SPI 29); keep the two in
+// sync if the block design changes.
 // ============================================================================
 /dts-v1/;
 #include "xilinx/zynq-zybo.dts"
@@ -44,7 +46,7 @@
     };
 };
 
-/* PL 外设直接挂根节点（6.6 的 zynq-zybo.dts 无 amba_pl 容器）*/
+/* PL peripherals hang directly off the root node (6.6's zynq-zybo.dts has no amba_pl container) */
 / {
     axi_i2s_0: i2s@43c00000 {
         #sound-dai-cells = <0>;
@@ -56,21 +58,22 @@
         dma-names = "tx", "rx";
     };
 
-    axi_iic_0: i2c@41600000 {             /* PL I2C → codec（⚠ 非 PS I2C） */
+    axi_iic_0: i2c@41600000 {             /* PL I2C -> codec (NOT the PS I2C) */
         compatible = "xlnx,xps-iic-2.00.a";
         reg = <0x41600000 0x10000>;
-        /* 必须显式写 interrupt-parent：zynq-7000.dtsi 只在 amba 节点上设了
-         * interrupt-parent=<&intc>，根节点没有；PL 节点挂在根节点下时
-         * of_irq_find_parent() 向上找不到，platform_get_irq() 返回 -ENXIO，
-         * xiic-i2c probe 直接失败（现象：无 I2C 适配器 → codec 不 probe →
-         * simple-audio-card 一直 deferred probe，"No soundcards found"）。
-         * DT 的 SPI 号相对 GIC SPI 基址 32：29 + 32 = 61 = IRQ_F2P[0]。 */
+        /* interrupt-parent must be set explicitly: zynq-7000.dtsi sets
+         * interrupt-parent=<&intc> only on the amba node, not on the root node.
+         * When a PL node hangs off the root node, of_irq_find_parent() cannot walk
+         * up to find it, platform_get_irq() returns -ENXIO and the xiic-i2c probe
+         * fails (no I2C adapter -> codec never probes -> simple-audio-card stays
+         * in deferred probe, "No soundcards found").
+         * DT SPI numbers are relative to the GIC SPI base of 32: 29 + 32 = 61 = IRQ_F2P[0]. */
         interrupt-parent = <&intc>;
         interrupts = <0 29 4>;            /* IRQ_F2P[0] */
-        /* xiic-i2c 用 devm_clk_get_enabled(dev, NULL) 取第一个时钟（= S_AXI_ACLK
-         * = FCLK_CLK0 100MHz），缺了会 probe 失败：
+        /* xiic-i2c calls devm_clk_get_enabled(dev, NULL), which takes the first
+         * clock (= S_AXI_ACLK = FCLK_CLK0 100MHz); the probe fails without it:
          *   "error -ENOENT: failed to enable input clock."
-         * 该时钟同时决定 SCL 分频（clk_get_rate 作 input_clk）。 */
+         * That clock also sets the SCL divider (clk_get_rate is the input_clk). */
         clocks = <&clkc 15>;              /* FCLK_CLK0 = 100MHz */
         #address-cells = <1>;
         #size-cells = <0>;
@@ -91,5 +94,6 @@
     };
 };
 
-// 说明：zynq-zybo.dts 自带 amba_pl 中的官方基础外设节点（timer/hdmi 等）在本设计中
-// 不存在于硬件；若 probe 噪音明显，可按需 /delete-node/（上板阶段处理）。
+// Note: zynq-zybo.dts ships official base peripheral nodes under amba_pl
+// (timer/hdmi etc.) that do not exist in this hardware; /delete-node/ them as
+// needed if the probe noise is significant.
