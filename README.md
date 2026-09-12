@@ -99,6 +99,13 @@ zImage  uImage  zybo-audio.dtb  System.map  kernel-config.txt  kernel-version.tx
 version. `kernel-config.txt` is the resolved configuration — hidden files such as
 `.config` are not uploaded as artifacts.
 
+## License
+
+This repository is licensed under the **GNU General Public License, version 2**
+(GPL-2.0); see [LICENSE](LICENSE) for the full text. The kernel it builds is
+GPL-2.0-only and its corresponding source is documented in
+[THIRD-PARTY.md](THIRD-PARTY.md).
+
 ## Related repositories
 
 - Buildroot rootfs: [zybo-buildroot](https://github.com/xufooo/zybo-buildroot)
